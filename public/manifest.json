@@ -1,0 +1,13 @@
+{
+  "name": "A.Bert CRM Textiles",
+  "short_name": "A.Bert",
+  "description": "Control de ventas y producción textil",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0c0c",
+  "theme_color": "#0c0c0c",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

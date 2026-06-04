@@ -169,7 +169,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
+      <div className="stats-3" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
         {statsData.map(s => (
           <div key={s.label} onClick={nav(s.url)} style={{
             background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8,
@@ -186,7 +186,7 @@ export default function Dashboard() {
       </div>
 
       {/* Charts row 1 */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+      <div className="charts-2" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
         <ChartCard title="Metros pendientes por tela" subtitle="Hover = variante · Click = filtrar pedidos">
           <ResponsiveContainer width="100%" height={210}>
             <BarChart data={chartTela} margin={{ left:-10 }}
@@ -229,7 +229,7 @@ export default function Dashboard() {
       </div>
 
       {/* Charts row 2 */}
-      <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:16 }}>
+      <div className="charts-2" style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:16 }}>
         <ChartCard title="Ventas mensuales (metros)" subtitle="Click en un mes para ver sus pedidos">
           <ResponsiveContainer width="100%" height={210}>
             <LineChart data={chartMensual} margin={{ left:-10 }}

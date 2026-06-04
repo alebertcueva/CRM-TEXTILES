@@ -191,17 +191,18 @@ function PedidosContent() {
         </div>
       ) : (
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, overflow:'hidden' }}>
+          <div className="table-scroll">
           <table style={{ width:'100%', borderCollapse:'collapse' }}>
             <thead>
               <tr>
                 <th style={sh}>Folio</th>
                 <th style={sh}>Cliente</th>
                 <th style={sh}>Fábrica</th>
-                <th style={sh}>Telas</th>
+                <th style={sh} className="hide-mobile">Telas</th>
                 <th style={{ ...sh, textAlign:'right' }}>Metros</th>
                 <th style={sh}>Estado</th>
-                <th style={sh}>Riesgo</th>
-                <th style={sh}>Compromiso</th>
+                <th style={sh} className="hide-mobile">Riesgo</th>
+                <th style={sh} className="hide-mobile">Compromiso</th>
               </tr>
             </thead>
             <tbody>
@@ -220,7 +221,7 @@ function PedidosContent() {
                     <td style={{ ...s, fontWeight:700 }}>{p.folio}</td>
                     <td style={{ ...s, color:'var(--text2)' }}>{p.clientes?.nombre ?? '—'}</td>
                     <td style={{ ...s, color:'var(--text3)' }}>{p.fabrica}</td>
-                    <td style={{ ...s, color:'var(--text3)', maxWidth:220, overflow:'hidden', textOverflow:'ellipsis' }}>
+                    <td className="hide-mobile" style={{ ...s, color:'var(--text3)', maxWidth:220, overflow:'hidden', textOverflow:'ellipsis' }}>
                       {p.lineas_pedido.map((l,i)=>`${l.tela}${l.variante?` (${l.variante})`:''}`).join(' · ')}
                     </td>
                     <td style={{ ...s, textAlign:'right', fontWeight:600, color:'var(--text)' }}>
@@ -246,8 +247,8 @@ function PedidosContent() {
                         </div>
                       )}
                     </td>
-                    <td style={{ ...s, fontSize:12, fontWeight:600, color:rc }}>{RIESGO_CONFIG[riesgo].label}</td>
-                    <td style={{ ...s, fontSize:12, color: diasRestantes !== null && diasRestantes < 0 ? 'var(--red)' : 'var(--text3)' }}>
+                    <td className="hide-mobile" style={{ ...s, fontSize:12, fontWeight:600, color:rc }}>{RIESGO_CONFIG[riesgo].label}</td>
+                    <td className="hide-mobile" style={{ ...s, fontSize:12, color: diasRestantes !== null && diasRestantes < 0 ? 'var(--red)' : 'var(--text3)' }}>
                       {p.fecha_compromiso ? format(new Date(p.fecha_compromiso),'dd MMM yy',{locale:es}) : '—'}
                       {diasRestantes !== null && p.estado !== 'Entregado' && (
                         <span style={{ marginLeft:6, fontSize:11 }}>
@@ -260,6 +261,7 @@ function PedidosContent() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
