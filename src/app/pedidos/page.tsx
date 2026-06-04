@@ -44,9 +44,19 @@ function PedidosContent() {
   const paramFabrica  = params.get('fabrica') ?? 'all'
 
   // Local state mirrors URL (for the filter bar)
-  const [busqueda, setBusqueda]       = useState('')
+  const [busqueda, setBusqueda]           = useState('')
   const [filtroFabrica, setFiltroFabrica] = useState(paramFabrica)
   const [filtroVista, setFiltroVista]     = useState(paramVista)
+  // Quick status change
+  const [changingId, setChangingId]       = useState<string | null>(null)
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!changingId) return
+    const close = () => setChangingId(null)
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [changingId])
 
   useEffect(() => {
     supabase.from('pedidos')
@@ -54,6 +64,16 @@ function PedidosContent() {
       .order('fecha_pedido', { ascending: false })
       .then(({ data }) => { setPedidos((data as unknown as Pedido[]) ?? []); setLoading(false) })
   }, [])
+
+  async function cambiarEstado(pedidoId: string, nuevoEstado: string, estadoActual: string) {
+    const updates: Record<string, string | null> = { estado: nuevoEstado }
+    if (nuevoEstado === 'Entregado') updates.fecha_entregado = new Date().toISOString().split('T')[0]
+    if (nuevoEstado !== 'Entregado' && estadoActual === 'Entregado') updates.fecha_entregado = null
+    await supabase.from('pedidos').update(updates).eq('id', pedidoId)
+    await supabase.from('estado_historial').insert({ pedido_id: pedidoId, estado_anterior: estadoActual, estado_nuevo: nuevoEstado })
+    setPedidos(prev => prev.map(p => p.id === pedidoId ? { ...p, estado: nuevoEstado } : p))
+    setChangingId(null)
+  }
 
   // Sync URL param changes to local state
   useEffect(() => { setFiltroVista(paramVista); setFiltroFabrica(paramFabrica) }, [paramVista, paramFabrica])
@@ -206,8 +226,25 @@ function PedidosContent() {
                     <td style={{ ...s, textAlign:'right', fontWeight:600, color:'var(--text)' }}>
                       {metros.toLocaleString()} m
                     </td>
-                    <td style={s}>
-                      <span style={{ fontSize:11, padding:'2px 8px', borderRadius:99, fontWeight:500, ...badge }}>{p.estado}</span>
+                    <td style={{ ...s, position:'relative' }} onClick={e => { e.stopPropagation(); setChangingId(changingId === p.id ? null : p.id) }}>
+                      <span style={{ fontSize:11, padding:'2px 8px', borderRadius:99, fontWeight:500, cursor:'pointer', ...badge }}>
+                        {p.estado} ▾
+                      </span>
+                      {changingId === p.id && (
+                        <div style={{ position:'absolute', top:'100%', left:0, zIndex:100, background:'var(--surface)', border:'1px solid var(--border2)', borderRadius:8, padding:6, minWidth:200, boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          {(['📥 Nuevo pedido','🏭 En producción','En Acabado','En acabado Externo','En revisión','Listo para entregar','Entregado','🔍 Verificando stock'] as const).map(est => (
+                            <button key={est} onClick={() => cambiarEstado(p.id, est, p.estado)}
+                              style={{ display:'block', width:'100%', textAlign:'left', padding:'6px 10px', background: est===p.estado ? 'var(--surface2)' : 'transparent', border:'none', borderRadius:6, fontSize:12, cursor:'pointer', color: est===p.estado ? 'var(--accent)' : 'var(--text2)', fontWeight: est===p.estado ? 700 : 400 }}
+                              onMouseEnter={e => { if (est!==p.estado) e.currentTarget.style.background='var(--surface2)' }}
+                              onMouseLeave={e => { if (est!==p.estado) e.currentTarget.style.background='transparent' }}
+                            >
+                              {est===p.estado ? '✓ ' : '   '}{est}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </td>
                     <td style={{ ...s, fontSize:12, fontWeight:600, color:rc }}>{RIESGO_CONFIG[riesgo].label}</td>
                     <td style={{ ...s, fontSize:12, color: diasRestantes !== null && diasRestantes < 0 ? 'var(--red)' : 'var(--text3)' }}>

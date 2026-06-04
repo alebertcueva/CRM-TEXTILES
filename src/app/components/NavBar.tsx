@@ -17,6 +17,7 @@ export default function NavBar() {
           { href: '/pedidos', label: 'Pedidos' },
           { href: '/acabados', label: 'Acabados' },
           { href: '/clientes', label: 'Clientes' },
+          { href: '/cobros',   label: 'Cobros 💰' },
         ].map(({ href, label }) => {
           const active = href === '/' ? path === '/' : path.startsWith(href)
           return (
