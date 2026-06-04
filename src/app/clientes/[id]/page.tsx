@@ -98,7 +98,7 @@ export default function ClienteDetalle() {
         </div>
 
         {/* Stats */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginTop:16 }}>
+        <div className="client-stats" style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginTop:16 }}>
           {[
             { label:'Pedidos activos',    value: activos.length,                     color:'var(--blue)' },
             { label:'Total metros',       value: `${totalMetros.toLocaleString()} m`, color:'var(--text)' },

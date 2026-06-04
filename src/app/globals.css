@@ -16,14 +16,18 @@
   --blue:      #60a5fa;
 }
 
-* { box-sizing: border-box; max-width: 100%; }
+* { box-sizing: border-box; }
+
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+}
 
 body {
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 14px;
-  overflow-x: hidden;
 }
 
 .input {
@@ -89,33 +93,51 @@ body {
 /* ── Responsive layouts ── */
 @media (max-width: 640px) {
   main {
-    padding: 16px 12px !important;
+    padding: 14px 12px !important;
   }
 
-  /* Stats: 2 columnas en mobile */
+  /* Cualquier grid de 3 columnas → 2 */
   .stats-3 {
     grid-template-columns: repeat(2, 1fr) !important;
   }
 
-  /* Charts: 1 columna en mobile */
+  /* Charts: columna única */
   .charts-2, .charts-3 {
     grid-template-columns: 1fr !important;
   }
 
   /* Ocultar columnas secundarias en tablas */
-  .hide-mobile {
-    display: none !important;
-  }
+  .hide-mobile { display: none !important; }
 
-  /* Botones más grandes para touch */
-  .btn-primary, .btn-ghost {
-    padding: 11px 16px;
-    font-size: 14px;
-  }
-
-  /* Formularios más cómodos */
+  /* Inputs: evita zoom en iOS */
   .input {
-    font-size: 16px; /* evita zoom automático en iOS */
+    font-size: 16px !important;
     padding: 10px 12px;
+  }
+
+  /* Headers con flex → wrap */
+  .page-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  /* Filas de filtros → wrap */
+  .filter-row {
+    flex-wrap: wrap;
+  }
+
+  /* Grids de 2 columnas en formularios → 1 columna */
+  .form-grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Stats de acabados 4 cols → 2 */
+  .stats-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Cards de clientes stat → 2x2 */
+  .client-stats {
+    grid-template-columns: repeat(2, 1fr) !important;
   }
 }

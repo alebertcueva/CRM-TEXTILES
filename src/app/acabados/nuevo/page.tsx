@@ -116,7 +116,7 @@ function NuevoAcabadoForm() {
         )}
 
         {/* Proceso y proveedor */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+        <div className="form-grid-2" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
           <div>
             <label className="label">Tipo de proceso</label>
             <select value={form.tipo_proceso} onChange={e => setForm(f=>({...f,tipo_proceso:e.target.value}))} className="input">
@@ -132,7 +132,7 @@ function NuevoAcabadoForm() {
         </div>
 
         {/* Metros y estado */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+        <div className="form-grid-2" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
           <div>
             <label className="label">Metros enviados</label>
             <input type="number" value={form.metros_enviados} onChange={e => setForm(f=>({...f,metros_enviados:e.target.value}))}
@@ -147,7 +147,7 @@ function NuevoAcabadoForm() {
         </div>
 
         {/* Fechas */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+        <div className="form-grid-2" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
           <div>
             <label className="label">Fecha de envío</label>
             <input type="date" value={form.fecha_envio} onChange={e => setForm(f=>({...f,fecha_envio:e.target.value}))} className="input" required />

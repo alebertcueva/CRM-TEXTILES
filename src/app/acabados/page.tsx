@@ -81,7 +81,7 @@ function AcabadosContent() {
       </div>
 
       {/* Stats clickeables */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
+      <div className="stats-4" style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
         {statCards.map(({ label, value, color, onClick }) => (
           <div key={label} onClick={onClick} style={{
             background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8,

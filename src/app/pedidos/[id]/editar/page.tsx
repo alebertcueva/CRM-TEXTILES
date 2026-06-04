@@ -136,7 +136,7 @@ export default function EditarPedidoPage() {
         <div style={S.section}>
           <div style={S.title}>Datos del pedido</div>
           <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-            <div style={S.grid2}>
+            <div className="form-grid-2" style={S.grid2}>
               <div>
                 <label className="label">Folio</label>
                 <input type="text" value={form.folio} onChange={e => setForm(f=>({...f,folio:e.target.value}))} className="input" required placeholder="Ej. M2601" />
@@ -164,7 +164,7 @@ export default function EditarPedidoPage() {
               </select>
             </div>
 
-            <div style={S.grid2}>
+            <div className="form-grid-2" style={S.grid2}>
               <div>
                 <label className="label">Fecha pedido</label>
                 <input type="date" value={form.fecha_pedido} onChange={e => setForm(f=>({...f,fecha_pedido:e.target.value}))} className="input" />

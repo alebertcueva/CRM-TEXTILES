@@ -29,6 +29,7 @@ const S = {
   section: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: 20 } as React.CSSProperties,
   title: { fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase' as const, letterSpacing: '0.5px', marginBottom: 16 },
   grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 } as React.CSSProperties,
+  // note: apply className="form-grid-2" alongside style={S.grid2}
   error: { color: 'var(--red)', fontSize: 13, background: '#2a0e0e', border: '1px solid #5a1a1a', borderRadius: 6, padding: '10px 14px' },
 }
 
@@ -124,7 +125,7 @@ export default function NuevoPedidoPage() {
                 {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
               </select>
             </div>
-            <div style={S.grid2}>
+            <div className="form-grid-2" style={S.grid2}>
               <div>
                 <label className="label">Fábrica</label>
                 <select value={form.fabrica} onChange={e => setForm(f => ({ ...f, fabrica: e.target.value }))} className="input">
