@@ -9,9 +9,12 @@ export default function NavBar() {
   return (
     <nav style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 50 }}>
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 20px', display: 'flex', alignItems: 'center', height: 52, gap: 4 }}>
-        <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--accent)', marginRight: 16, letterSpacing: '-0.3px' }}>
-          ◆ Textiles
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 16, textDecoration: 'none' }}>
+          <img src="/favicon.svg" width={28} height={28} alt="A.Bert" style={{ borderRadius: 6 }} />
+          <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--accent)', letterSpacing: '-0.3px' }}>
+            A.Bert
+          </span>
+        </div>
         {[
           { href: '/', label: 'Dashboard' },
           { href: '/pedidos', label: 'Pedidos' },

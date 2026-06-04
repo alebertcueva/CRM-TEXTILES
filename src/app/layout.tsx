@@ -3,8 +3,12 @@ import NavBar from './components/NavBar'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'CRM Textiles',
-  description: 'Control de ventas y producción textil',
+  title: 'A.Bert — CRM Textiles',
+  description: 'Control de ventas y producción textil A.Bert',
+  icons: {
+    icon: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
 }
 export const viewport: Viewport = { width: 'device-width', initialScale: 1 }
 
