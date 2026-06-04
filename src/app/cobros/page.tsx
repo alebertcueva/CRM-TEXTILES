@@ -71,10 +71,11 @@ export default function CobrosPage() {
     if (!porCliente[clienteId]) porCliente[clienteId] = { nombre, pedidos: [] }
     const val = valorPedido(p)
     const cob = cobrado(p)
-    const isEntregado = p.estado === 'Entregado' || p.fecha_entregado
-    if (filtro === 'pendiente' && !(isEntregado && cob < val)) return
-    if (filtro === 'cobrado'   && !(isEntregado && cob >= val && val > 0)) return
-    if (filtro === 'todos' && val === 0) return
+    const isEntregado = p.estado === 'Entregado' || !!p.fecha_entregado
+    // Solo mostrar pedidos entregados en todas las vistas
+    if (!isEntregado) return
+    if (filtro === 'pendiente' && cob >= val && val > 0) return  // excluir los ya cobrados completos
+    if (filtro === 'cobrado'   && !(cob >= val && val > 0)) return
     porCliente[clienteId].pedidos.push(p)
   })
 
@@ -192,8 +193,8 @@ export default function CobrosPage() {
                             )}
                           </td>
                           <td style={{ ...s }}>
-                            {saldo !== 0 && val > 0 && (
-                              <button onClick={() => { setAddingTo(p); setMonto(String(saldo > 0 ? saldo : '')); setFecha(new Date().toISOString().split('T')[0]); setNotas('') }}
+                            {saldo !== 0 && (
+                              <button onClick={() => { setAddingTo(p); setMonto(saldo > 0 ? String(Math.round(saldo)) : ''); setFecha(new Date().toISOString().split('T')[0]); setNotas('') }}
                                 style={{ fontSize:11, padding:'3px 8px', background:'var(--accent)', border:'none', color:'#0c0c0c', borderRadius:4, cursor:'pointer', fontWeight:600, whiteSpace:'nowrap' }}>
                                 + Cobro
                               </button>
