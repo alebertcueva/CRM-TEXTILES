@@ -17,14 +17,14 @@ type Pedido = {
 }
 
 function valorPedido(p: Pedido) {
-  return p.lineas_pedido.reduce((s, l) => {
+  return (p.lineas_pedido ?? []).reduce((s, l) => {
     if (l.tipo === 'producto') return s + ((l.unidades ?? 0) * (l.precio_unitario ?? 0))
-    return s + (l.metros_solicitados * l.precio)
+    return s + (l.metros_solicitados * (l.precio ?? 0))
   }, 0)
 }
 
 function cobrado(p: Pedido) {
-  return p.cobros.reduce((s, c) => s + c.monto, 0)
+  return (p.cobros ?? []).reduce((s, c) => s + c.monto, 0)
 }
 
 export default function CobrosPage() {
@@ -40,11 +40,20 @@ export default function CobrosPage() {
   const [saving, setSaving]       = useState(false)
 
   async function load() {
-    const { data } = await supabase
-      .from('pedidos')
-      .select('id,folio,estado,fecha_entregado,clientes(id,nombre),lineas_pedido(metros_solicitados,precio,tipo,unidades,precio_unitario),cobros(id,monto,fecha,notas)')
-      .order('fecha_entregado', { ascending: false, nullsFirst: false })
-    setPedidos((data as unknown as Pedido[]) ?? [])
+    const [{ data: pData }, { data: cData }] = await Promise.all([
+      supabase.from('pedidos')
+        .select('id,folio,estado,fecha_entregado,clientes(id,nombre),lineas_pedido(metros_solicitados,precio,tipo,unidades,precio_unitario)')
+        .order('fecha_entregado', { ascending: false, nullsFirst: false }),
+      supabase.from('cobros').select('id,pedido_id,monto,fecha,notas'),
+    ])
+    // Merge cobros into pedidos
+    const cobrosMap: Record<string, Cobro[]> = {}
+    ;(cData ?? []).forEach((c: any) => {
+      if (!cobrosMap[c.pedido_id]) cobrosMap[c.pedido_id] = []
+      cobrosMap[c.pedido_id].push(c)
+    })
+    const merged = (pData as unknown as Pedido[])?.map(p => ({ ...p, cobros: cobrosMap[p.id] ?? [] })) ?? []
+    setPedidos(merged)
     setLoading(false)
   }
   useEffect(() => { load() }, [])
