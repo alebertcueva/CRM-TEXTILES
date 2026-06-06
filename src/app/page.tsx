@@ -188,7 +188,7 @@ export default function Dashboard() {
       {/* Charts row 1 */}
       <div className="charts-2" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
         <ChartCard title="Metros pendientes por tela" subtitle="Hover = variante · Click = filtrar pedidos">
-          <ResponsiveContainer width="100%" height={210}>
+          <ResponsiveContainer width="100%" className="chart-h" height={210}>
             <BarChart data={chartTela} margin={{ left:-10 }}
               onClick={(d:any) => d?.activePayload?.[0] && router.push(`/pedidos?tela=${encodeURIComponent(d.activePayload[0].payload.tela)}&vista=activos`)}
               style={{ cursor:'pointer' }}
@@ -208,7 +208,7 @@ export default function Dashboard() {
         </ChartCard>
 
         <ChartCard title="Metros totales por tela" subtitle="Todos los pedidos · hover = variante">
-          <ResponsiveContainer width="100%" height={210}>
+          <ResponsiveContainer width="100%" className="chart-h" height={210}>
             <BarChart data={chartVentas} margin={{ left:-10 }}
               onClick={(d:any) => d?.activePayload?.[0] && router.push(`/pedidos?tela=${encodeURIComponent(d.activePayload[0].payload.tela)}`)}
               style={{ cursor:'pointer' }}
@@ -231,7 +231,7 @@ export default function Dashboard() {
       {/* Charts row 2 */}
       <div className="charts-2" style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:16 }}>
         <ChartCard title="Ventas mensuales (metros)" subtitle="Click en un mes para ver sus pedidos">
-          <ResponsiveContainer width="100%" height={210}>
+          <ResponsiveContainer width="100%" className="chart-h" height={210}>
             <LineChart data={chartMensual} margin={{ left:-10 }}
               onClick={(d:any) => d?.activePayload?.[0] && router.push(`/pedidos?mes=${encodeURIComponent(d.activePayload[0].payload.mes)}`)}
               style={{ cursor:'pointer' }}
@@ -258,7 +258,7 @@ export default function Dashboard() {
               </span>
             ))}
           </div>
-          <ResponsiveContainer width="100%" height={180}>
+          <ResponsiveContainer width="100%" className="chart-h" height={180}>
             <BarChart data={chartProv} layout="vertical" margin={{ left:10 }}
               onClick={(d:any) => d?.activePayload?.[0] && router.push(`/acabados?proveedor=${encodeURIComponent(d.activePayload[0].payload.proveedor)}`)}
               style={{ cursor:'pointer' }}

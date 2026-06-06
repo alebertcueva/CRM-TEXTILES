@@ -14,6 +14,7 @@
   --red:       #f87171;
   --yellow:    #fbbf24;
   --blue:      #60a5fa;
+  --bottom-nav-h: 56px;
 }
 
 * { box-sizing: border-box; }
@@ -30,6 +31,7 @@ body {
   font-size: 14px;
 }
 
+/* ── Inputs ── */
 .input {
   width: 100%;
   background: var(--surface2);
@@ -43,6 +45,11 @@ body {
 }
 .input:focus { border-color: var(--accent); }
 .input::placeholder { color: var(--text3); }
+
+/* Prevent iOS zoom on focus */
+@supports (-webkit-touch-callout: none) {
+  .input { font-size: 16px; }
+}
 
 .label {
   display: block;
@@ -58,6 +65,7 @@ body {
   border-radius: 8px;
 }
 
+/* ── Buttons ── */
 .btn-primary {
   background: var(--accent);
   color: #0c0c0c;
@@ -68,6 +76,10 @@ body {
   border: none;
   cursor: pointer;
   transition: opacity 0.15s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
 .btn-primary:hover { opacity: 0.85; }
 .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -84,60 +96,123 @@ body {
 }
 .btn-ghost:hover { border-color: var(--text2); color: var(--text); }
 
-/* ── Tabla scrolleable en mobile ── */
+/* ── Navigation ── */
+.top-nav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.bottom-nav { display: none; }
+
+/* ── Table scroll ── */
 .table-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
 
-/* ── Responsive layouts ── */
+/* ── Responsive utilities ── */
+.desktop-only { display: block; }
+.mobile-only  { display: none !important; }
+
+/* ── Desktop / Laptop (>640px) ── */
+@media (min-width: 641px) {
+  .stats-3   { grid-template-columns: repeat(3, 1fr); }
+  .stats-4   { grid-template-columns: repeat(4, 1fr); }
+  .charts-2  { grid-template-columns: 1fr 1fr; }
+}
+
+/* ─────────────────────────────────────────
+   Mobile (≤640px)
+───────────────────────────────────────── */
 @media (max-width: 640px) {
+
+  /* Top nav → hidden, replaced by bottom tabs */
+  .top-nav { display: none; }
+
+  /* Bottom tab bar */
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--bottom-nav-h);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    z-index: 50;
+    /* Safe area for iPhone home indicator */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .bottom-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text3);
+    text-decoration: none;
+    transition: color 0.15s;
+    border-top: 2px solid transparent;
+  }
+
+  .bottom-tab-active {
+    color: var(--accent);
+    font-weight: 700;
+    border-top-color: var(--accent);
+  }
+
+  /* Main content — clear space for bottom nav */
   main {
     padding: 14px 12px !important;
+    padding-bottom: calc(var(--bottom-nav-h) + 16px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
-  /* Cualquier grid de 3 columnas → 2 */
-  .stats-3 {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
+  /* Grid layouts */
+  .stats-3   { grid-template-columns: repeat(2, 1fr) !important; }
+  .stats-4   { grid-template-columns: repeat(2, 1fr) !important; }
+  .charts-2,
+  .charts-3  { grid-template-columns: 1fr !important; }
+  .form-grid-2,
+  .client-stats { grid-template-columns: 1fr !important; }
 
-  /* Charts: columna única */
-  .charts-2, .charts-3 {
-    grid-template-columns: 1fr !important;
-  }
-
-  /* Ocultar columnas secundarias en tablas */
+  /* Tables — hide secondary columns */
   .hide-mobile { display: none !important; }
 
-  /* Inputs: evita zoom en iOS */
+  /* Visibility helpers */
+  .desktop-only { display: none !important; }
+  .mobile-only  { display: flex !important; }
+
+
+  /* Touch-friendly inputs */
   .input {
     font-size: 16px !important;
     padding: 10px 12px;
+    min-height: 44px;
   }
 
-  /* Headers con flex → wrap */
+  /* Buttons — min touch target */
+  .btn-primary,
+  .btn-ghost {
+    min-height: 44px;
+  }
+
+  /* Page headers */
   .page-header {
     flex-wrap: wrap;
     gap: 10px;
   }
 
-  /* Filas de filtros → wrap */
-  .filter-row {
-    flex-wrap: wrap;
-  }
+  /* Filter rows wrap naturally */
+  .filter-row { flex-wrap: wrap; }
 
-  /* Grids de 2 columnas en formularios → 1 columna */
-  .form-grid-2 {
-    grid-template-columns: 1fr !important;
-  }
+  /* Cobros stats → 3 cols but compact */
+  .cobros-stats { grid-template-columns: repeat(3, 1fr) !important; }
 
-  /* Stats de acabados 4 cols → 2 */
-  .stats-4 {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-
-  /* Cards de clientes stat → 2x2 */
-  .client-stats {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
+  /* Charts — shorter on mobile */
+  .chart-h { height: 170px !important; }
 }

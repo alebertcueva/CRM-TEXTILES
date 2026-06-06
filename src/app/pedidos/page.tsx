@@ -165,20 +165,25 @@ function PedidosContent() {
       <div style={{ display:'flex', gap:8, marginBottom:16, flexWrap:'wrap' }}>
         <input type="text" placeholder="Buscar folio, cliente, tela..."
           value={busqueda} onChange={e => setBusqueda(e.target.value)}
-          className="input" style={{ flex:1, minWidth:200 }} />
+          className="input" style={{ flex:1, minWidth:160 }} />
         <select value={filtroFabrica} onChange={e => setFiltroFabrica(e.target.value)}
           className="input" style={{ width:'auto' }}>
           <option value="all">Todas las fábricas</option>
           {FABRICAS.map(f => <option key={f}>{f}</option>)}
         </select>
-        <div style={{ display:'flex', border:'1px solid var(--border2)', borderRadius:6, overflow:'hidden' }}>
-          {['activos','todos','entregados','semana'].map(v => (
+        <div style={{ display:'flex', border:'1px solid var(--border2)', borderRadius:6, overflow:'hidden', flexShrink:0 }}>
+          {[
+            { v:'activos',    label:'Activos'    },
+            { v:'todos',      label:'Todos'      },
+            { v:'entregados', label:'Entregados' },
+            { v:'semana',     label:'Semana'     },
+          ].map(({ v, label }) => (
             <button key={v} onClick={() => { setFiltroVista(v); router.push(`/pedidos?vista=${v}`) }} style={{
-              padding:'8px 12px', fontSize:12, cursor:'pointer', border:'none', textTransform:'capitalize',
+              padding:'8px 11px', fontSize:12, cursor:'pointer', border:'none',
               background: filtroVista===v ? 'var(--accent)' : 'var(--surface2)',
               color: filtroVista===v ? '#0c0c0c' : 'var(--text2)',
               fontWeight: filtroVista===v ? 600 : 400,
-            }}>{v}</button>
+            }}>{label}</button>
           ))}
         </div>
       </div>
@@ -190,79 +195,121 @@ function PedidosContent() {
           Sin resultados{chips.length > 0 && ' — prueba limpiando los filtros'}
         </div>
       ) : (
-        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, overflow:'hidden' }}>
-          <div className="table-scroll">
-          <table style={{ width:'100%', borderCollapse:'collapse' }}>
-            <thead>
-              <tr>
-                <th style={sh}>Folio</th>
-                <th style={sh}>Cliente</th>
-                <th style={sh}>Fábrica</th>
-                <th style={sh} className="hide-mobile">Telas</th>
-                <th style={{ ...sh, textAlign:'right' }}>Metros</th>
-                <th style={sh}>Estado</th>
-                <th style={sh} className="hide-mobile">Riesgo</th>
-                <th style={sh} className="hide-mobile">Compromiso</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtrados.map(p => {
-                const riesgo = calcularRiesgo(p.fecha_compromiso, p.estado)
-                const metros = p.lineas_pedido.reduce((s,l)=>s+l.metros_solicitados,0)
-                const badge  = badgeStyle(p.estado)
-                const rc = riesgo==='atrasado'?'var(--red)':riesgo==='revisar'?'var(--yellow)':riesgo==='entregado'?'var(--text3)':'var(--accent)'
-                const diasRestantes = p.fecha_compromiso ? differenceInDays(new Date(p.fecha_compromiso), hoy) : null
-                return (
-                  <tr key={p.id} style={{ cursor:'pointer' }}
-                    onClick={() => router.push(`/pedidos/${p.id}`)}
-                    onMouseEnter={e=>(e.currentTarget.style.background='var(--surface2)')}
-                    onMouseLeave={e=>(e.currentTarget.style.background='transparent')}
-                  >
-                    <td style={{ ...s, fontWeight:700 }}>{p.folio}</td>
-                    <td style={{ ...s, color:'var(--text2)' }}>{p.clientes?.nombre ?? '—'}</td>
-                    <td style={{ ...s, color:'var(--text3)' }}>{p.fabrica}</td>
-                    <td className="hide-mobile" style={{ ...s, color:'var(--text3)', maxWidth:220, overflow:'hidden', textOverflow:'ellipsis' }}>
-                      {p.lineas_pedido.map((l,i)=>`${l.tela}${l.variante?` (${l.variante})`:''}`).join(' · ')}
-                    </td>
-                    <td style={{ ...s, textAlign:'right', fontWeight:600, color:'var(--text)' }}>
-                      {metros.toLocaleString()} m
-                    </td>
-                    <td style={{ ...s, position:'relative' }} onClick={e => { e.stopPropagation(); setChangingId(changingId === p.id ? null : p.id) }}>
-                      <span style={{ fontSize:11, padding:'2px 8px', borderRadius:99, fontWeight:500, cursor:'pointer', ...badge }}>
-                        {p.estado} ▾
-                      </span>
-                      {changingId === p.id && (
-                        <div style={{ position:'absolute', top:'100%', left:0, zIndex:100, background:'var(--surface)', border:'1px solid var(--border2)', borderRadius:8, padding:6, minWidth:200, boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}
-                          onClick={e => e.stopPropagation()}
-                        >
-                          {(['📥 Nuevo pedido','🏭 En producción','En Acabado','En acabado Externo','En revisión','Listo para entregar','Entregado','🔍 Verificando stock'] as const).map(est => (
-                            <button key={est} onClick={() => cambiarEstado(p.id, est, p.estado)}
-                              style={{ display:'block', width:'100%', textAlign:'left', padding:'6px 10px', background: est===p.estado ? 'var(--surface2)' : 'transparent', border:'none', borderRadius:6, fontSize:12, cursor:'pointer', color: est===p.estado ? 'var(--accent)' : 'var(--text2)', fontWeight: est===p.estado ? 700 : 400 }}
-                              onMouseEnter={e => { if (est!==p.estado) e.currentTarget.style.background='var(--surface2)' }}
-                              onMouseLeave={e => { if (est!==p.estado) e.currentTarget.style.background='transparent' }}
-                            >
-                              {est===p.estado ? '✓ ' : '   '}{est}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td className="hide-mobile" style={{ ...s, fontSize:12, fontWeight:600, color:rc }}>{RIESGO_CONFIG[riesgo].label}</td>
-                    <td className="hide-mobile" style={{ ...s, fontSize:12, color: diasRestantes !== null && diasRestantes < 0 ? 'var(--red)' : 'var(--text3)' }}>
-                      {p.fecha_compromiso ? format(new Date(p.fecha_compromiso),'dd MMM yy',{locale:es}) : '—'}
+        <>
+          {/* ── Mobile: card list ── */}
+          <div className="mobile-only" style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {filtrados.map(p => {
+              const riesgo = calcularRiesgo(p.fecha_compromiso, p.estado)
+              const metros = p.lineas_pedido.reduce((s,l)=>s+l.metros_solicitados,0)
+              const badge  = badgeStyle(p.estado)
+              const rc = riesgo==='atrasado'?'var(--red)':riesgo==='revisar'?'var(--yellow)':riesgo==='entregado'?'var(--text3)':'var(--accent)'
+              const diasRestantes = p.fecha_compromiso ? differenceInDays(new Date(p.fecha_compromiso), hoy) : null
+              return (
+                <div key={p.id} onClick={() => router.push(`/pedidos/${p.id}`)}
+                  style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, padding:'12px 14px', cursor:'pointer' }}
+                >
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6 }}>
+                    <div>
+                      <span style={{ fontWeight:700, fontSize:14 }}>{p.folio}</span>
+                      <span style={{ color:'var(--text3)', fontSize:12, marginLeft:6 }}>{p.fabrica}</span>
+                    </div>
+                    <span style={{ fontSize:11, padding:'2px 8px', borderRadius:99, fontWeight:500, flexShrink:0, ...badge }}>{p.estado}</span>
+                  </div>
+                  <div style={{ color:'var(--text2)', fontSize:13, marginBottom:4 }}>{p.clientes?.nombre ?? '—'}</div>
+                  <div style={{ color:'var(--text3)', fontSize:12, marginBottom:6, overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>
+                    {p.lineas_pedido.map(l=>`${l.tela}${l.variante?` (${l.variante})`:''}`).join(' · ')}
+                  </div>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <span style={{ fontSize:12, fontWeight:600, color:rc }}>{RIESGO_CONFIG[riesgo].label}</span>
+                    <div style={{ display:'flex', gap:10, fontSize:12, color:'var(--text3)' }}>
                       {diasRestantes !== null && p.estado !== 'Entregado' && (
-                        <span style={{ marginLeft:6, fontSize:11 }}>
-                          ({diasRestantes >= 0 ? `${diasRestantes}d` : `${Math.abs(diasRestantes)}d venc.`})
+                        <span style={{ color: diasRestantes<0?'var(--red)':'var(--text3)' }}>
+                          {diasRestantes>=0 ? `${diasRestantes}d` : `${Math.abs(diasRestantes)}d venc.`}
                         </span>
                       )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                      <span style={{ fontWeight:600, color:'var(--text)' }}>{metros.toLocaleString()} m</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
-        </div>
+
+          {/* ── Desktop: table ── */}
+          <div className="desktop-only" style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, overflow:'hidden' }}>
+            <div className="table-scroll">
+            <table style={{ width:'100%', borderCollapse:'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={sh}>Folio</th>
+                  <th style={sh}>Cliente</th>
+                  <th style={sh}>Fábrica</th>
+                  <th style={sh}>Telas</th>
+                  <th style={{ ...sh, textAlign:'right' }}>Metros</th>
+                  <th style={sh}>Estado</th>
+                  <th style={sh}>Riesgo</th>
+                  <th style={sh}>Compromiso</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtrados.map(p => {
+                  const riesgo = calcularRiesgo(p.fecha_compromiso, p.estado)
+                  const metros = p.lineas_pedido.reduce((s,l)=>s+l.metros_solicitados,0)
+                  const badge  = badgeStyle(p.estado)
+                  const rc = riesgo==='atrasado'?'var(--red)':riesgo==='revisar'?'var(--yellow)':riesgo==='entregado'?'var(--text3)':'var(--accent)'
+                  const diasRestantes = p.fecha_compromiso ? differenceInDays(new Date(p.fecha_compromiso), hoy) : null
+                  return (
+                    <tr key={p.id} style={{ cursor:'pointer' }}
+                      onClick={() => router.push(`/pedidos/${p.id}`)}
+                      onMouseEnter={e=>(e.currentTarget.style.background='var(--surface2)')}
+                      onMouseLeave={e=>(e.currentTarget.style.background='transparent')}
+                    >
+                      <td style={{ ...s, fontWeight:700 }}>{p.folio}</td>
+                      <td style={{ ...s, color:'var(--text2)' }}>{p.clientes?.nombre ?? '—'}</td>
+                      <td style={{ ...s, color:'var(--text3)' }}>{p.fabrica}</td>
+                      <td style={{ ...s, color:'var(--text3)', maxWidth:240, overflow:'hidden', textOverflow:'ellipsis' }}>
+                        {p.lineas_pedido.map(l=>`${l.tela}${l.variante?` (${l.variante})`:''}`).join(' · ')}
+                      </td>
+                      <td style={{ ...s, textAlign:'right', fontWeight:600, color:'var(--text)' }}>
+                        {metros.toLocaleString()} m
+                      </td>
+                      <td style={{ ...s, position:'relative' }} onClick={e => { e.stopPropagation(); setChangingId(changingId === p.id ? null : p.id) }}>
+                        <span style={{ fontSize:11, padding:'2px 8px', borderRadius:99, fontWeight:500, cursor:'pointer', ...badge }}>
+                          {p.estado} ▾
+                        </span>
+                        {changingId === p.id && (
+                          <div style={{ position:'absolute', top:'100%', left:0, zIndex:100, background:'var(--surface)', border:'1px solid var(--border2)', borderRadius:8, padding:6, minWidth:200, boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}
+                            onClick={e => e.stopPropagation()}
+                          >
+                            {(['📥 Nuevo pedido','🏭 En producción','En Acabado','En acabado Externo','En revisión','Listo para entregar','Entregado','🔍 Verificando stock'] as const).map(est => (
+                              <button key={est} onClick={() => cambiarEstado(p.id, est, p.estado)}
+                                style={{ display:'block', width:'100%', textAlign:'left', padding:'6px 10px', background: est===p.estado ? 'var(--surface2)' : 'transparent', border:'none', borderRadius:6, fontSize:12, cursor:'pointer', color: est===p.estado ? 'var(--accent)' : 'var(--text2)', fontWeight: est===p.estado ? 700 : 400 }}
+                                onMouseEnter={e => { if (est!==p.estado) e.currentTarget.style.background='var(--surface2)' }}
+                                onMouseLeave={e => { if (est!==p.estado) e.currentTarget.style.background='transparent' }}
+                              >
+                                {est===p.estado ? '✓ ' : '   '}{est}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ ...s, fontSize:12, fontWeight:600, color:rc }}>{RIESGO_CONFIG[riesgo].label}</td>
+                      <td style={{ ...s, fontSize:12, color: diasRestantes !== null && diasRestantes < 0 ? 'var(--red)' : 'var(--text3)' }}>
+                        {p.fecha_compromiso ? format(new Date(p.fecha_compromiso),'dd MMM yy',{locale:es}) : '—'}
+                        {diasRestantes !== null && p.estado !== 'Entregado' && (
+                          <span style={{ marginLeft:6, fontSize:11 }}>
+                            ({diasRestantes >= 0 ? `${diasRestantes}d` : `${Math.abs(diasRestantes)}d venc.`})
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            </div>
+          </div>
+        </>
       )}
     </div>
   )

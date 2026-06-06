@@ -23,7 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es">
       <body>
         <NavBar />
-        <main style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px' }}>
+        <main style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 24px' }}>
           {children}
         </main>
       </body>
