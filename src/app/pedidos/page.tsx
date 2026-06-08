@@ -12,7 +12,7 @@ type Pedido = {
   id: string; folio: string; fabrica: string; estado: string
   fecha_pedido: string; fecha_compromiso: string | null; fecha_entregado: string | null
   clientes: { nombre: string } | null
-  lineas_pedido: { tela: string; variante: string | null; metros_solicitados: number }[]
+  lineas_pedido: { tela: string; variante: string | null; metros_solicitados: number; metros_entregados: number | null }[]
 }
 
 function badgeStyle(estado: string) {
@@ -60,7 +60,7 @@ function PedidosContent() {
 
   useEffect(() => {
     supabase.from('pedidos')
-      .select('id,folio,fabrica,estado,fecha_pedido,fecha_compromiso,fecha_entregado,clientes(nombre),lineas_pedido(tela,variante,metros_solicitados)')
+      .select('id,folio,fabrica,estado,fecha_pedido,fecha_compromiso,fecha_entregado,clientes(nombre),lineas_pedido(tela,variante,metros_solicitados,metros_entregados)')
       .order('fecha_pedido', { ascending: false })
       .then(({ data }) => { setPedidos((data as unknown as Pedido[]) ?? []); setLoading(false) })
   }, [])
@@ -200,36 +200,60 @@ function PedidosContent() {
           <div className="mobile-only" style={{ display:'flex', flexDirection:'column', gap:8 }}>
             {filtrados.map(p => {
               const riesgo = calcularRiesgo(p.fecha_compromiso, p.estado)
-              const metros = p.lineas_pedido.reduce((s,l)=>s+l.metros_solicitados,0)
-              const badge  = badgeStyle(p.estado)
+              const metros  = p.lineas_pedido.reduce((s,l)=>s+l.metros_solicitados,0)
+              const entreg  = p.lineas_pedido.reduce((s,l)=>s+(l.metros_entregados??0),0)
+              const pct     = metros > 0 ? Math.min(entreg/metros*100, 100) : 0
+              const badge   = badgeStyle(p.estado)
               const rc = riesgo==='atrasado'?'var(--red)':riesgo==='revisar'?'var(--yellow)':riesgo==='entregado'?'var(--text3)':'var(--accent)'
               const diasRestantes = p.fecha_compromiso ? differenceInDays(new Date(p.fecha_compromiso), hoy) : null
               return (
                 <div key={p.id} onClick={() => router.push(`/pedidos/${p.id}`)}
-                  style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, padding:'12px 14px', cursor:'pointer' }}
+                  style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, overflow:'hidden', cursor:'pointer' }}
                 >
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6 }}>
-                    <div>
-                      <span style={{ fontWeight:700, fontSize:14 }}>{p.folio}</span>
-                      <span style={{ color:'var(--text3)', fontSize:12, marginLeft:6 }}>{p.fabrica}</span>
+                  <div style={{ padding:'12px 14px' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6 }}>
+                      <div>
+                        <span style={{ fontWeight:700, fontSize:14 }}>{p.folio}</span>
+                        <span style={{ color:'var(--text3)', fontSize:12, marginLeft:6 }}>{p.fabrica}</span>
+                      </div>
+                      <span style={{ fontSize:11, padding:'2px 8px', borderRadius:99, fontWeight:500, flexShrink:0, ...badge }}>{p.estado}</span>
                     </div>
-                    <span style={{ fontSize:11, padding:'2px 8px', borderRadius:99, fontWeight:500, flexShrink:0, ...badge }}>{p.estado}</span>
-                  </div>
-                  <div style={{ color:'var(--text2)', fontSize:13, marginBottom:4 }}>{p.clientes?.nombre ?? '—'}</div>
-                  <div style={{ color:'var(--text3)', fontSize:12, marginBottom:6, overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>
-                    {p.lineas_pedido.map(l=>`${l.tela}${l.variante?` (${l.variante})`:''}`).join(' · ')}
-                  </div>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ fontSize:12, fontWeight:600, color:rc }}>{RIESGO_CONFIG[riesgo].label}</span>
-                    <div style={{ display:'flex', gap:10, fontSize:12, color:'var(--text3)' }}>
-                      {diasRestantes !== null && p.estado !== 'Entregado' && (
-                        <span style={{ color: diasRestantes<0?'var(--red)':'var(--text3)' }}>
-                          {diasRestantes>=0 ? `${diasRestantes}d` : `${Math.abs(diasRestantes)}d venc.`}
-                        </span>
-                      )}
-                      <span style={{ fontWeight:600, color:'var(--text)' }}>{metros.toLocaleString()} m</span>
+                    <div style={{ color:'var(--text2)', fontSize:13, marginBottom:4 }}>{p.clientes?.nombre ?? '—'}</div>
+                    <div style={{ color:'var(--text3)', fontSize:12, marginBottom:8, overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>
+                      {p.lineas_pedido.map(l=>`${l.tela}${l.variante?` (${l.variante})`:''}`).join(' · ')}
+                    </div>
+                    {entreg > 0 && (
+                      <div style={{ marginBottom:8 }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'var(--text3)', marginBottom:4 }}>
+                          <span>{entreg.toLocaleString()} m entregados de {metros.toLocaleString()} m</span>
+                          <span style={{ fontWeight:600, color: pct>=100?'var(--accent)':'var(--yellow)' }}>{Math.round(pct)}%</span>
+                        </div>
+                        <div style={{ height:3, background:'var(--surface2)', borderRadius:99, overflow:'hidden' }}>
+                          <div style={{ height:'100%', width:`${pct}%`, background: pct>=100?'var(--accent)':'var(--yellow)', borderRadius:99 }} />
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                      <span style={{ fontSize:12, fontWeight:600, color:rc }}>{RIESGO_CONFIG[riesgo].label}</span>
+                      <div style={{ display:'flex', gap:10, fontSize:12, color:'var(--text3)' }}>
+                        {diasRestantes !== null && p.estado !== 'Entregado' && (
+                          <span style={{ color: diasRestantes<0?'var(--red)':'var(--text3)' }}>
+                            {diasRestantes>=0 ? `${diasRestantes}d` : `${Math.abs(diasRestantes)}d venc.`}
+                          </span>
+                        )}
+                        <span style={{ fontWeight:600, color:'var(--text)' }}>{metros.toLocaleString()} m</span>
+                      </div>
                     </div>
                   </div>
+                  {/* Mini barra al fondo de la card */}
+                  {entreg > 0 && pct < 100 && (
+                    <div style={{ height:2, background:'var(--surface2)' }}>
+                      <div style={{ height:'100%', width:`${pct}%`, background:'var(--yellow)' }} />
+                    </div>
+                  )}
+                  {entreg > 0 && pct >= 100 && (
+                    <div style={{ height:2, background:'var(--accent)' }} />
+                  )}
                 </div>
               )
             })}
@@ -253,9 +277,11 @@ function PedidosContent() {
               </thead>
               <tbody>
                 {filtrados.map(p => {
-                  const riesgo = calcularRiesgo(p.fecha_compromiso, p.estado)
-                  const metros = p.lineas_pedido.reduce((s,l)=>s+l.metros_solicitados,0)
-                  const badge  = badgeStyle(p.estado)
+                  const riesgo  = calcularRiesgo(p.fecha_compromiso, p.estado)
+                  const metros  = p.lineas_pedido.reduce((s,l)=>s+l.metros_solicitados,0)
+                  const entreg  = p.lineas_pedido.reduce((s,l)=>s+(l.metros_entregados??0),0)
+                  const pct     = metros > 0 ? Math.min(entreg/metros*100, 100) : 0
+                  const badge   = badgeStyle(p.estado)
                   const rc = riesgo==='atrasado'?'var(--red)':riesgo==='revisar'?'var(--yellow)':riesgo==='entregado'?'var(--text3)':'var(--accent)'
                   const diasRestantes = p.fecha_compromiso ? differenceInDays(new Date(p.fecha_compromiso), hoy) : null
                   return (
@@ -270,8 +296,18 @@ function PedidosContent() {
                       <td style={{ ...s, color:'var(--text3)', maxWidth:240, overflow:'hidden', textOverflow:'ellipsis' }}>
                         {p.lineas_pedido.map(l=>`${l.tela}${l.variante?` (${l.variante})`:''}`).join(' · ')}
                       </td>
-                      <td style={{ ...s, textAlign:'right', fontWeight:600, color:'var(--text)' }}>
-                        {metros.toLocaleString()} m
+                      <td style={{ ...s, textAlign:'right' }}>
+                        <div style={{ fontWeight:600, color:'var(--text)' }}>{metros.toLocaleString()} m</div>
+                        {entreg > 0 && (
+                          <div style={{ marginTop:4 }}>
+                            <div style={{ height:3, background:'var(--surface2)', borderRadius:99, overflow:'hidden', width:72, marginLeft:'auto' }}>
+                              <div style={{ height:'100%', width:`${pct}%`, background: pct>=100?'var(--accent)':'var(--yellow)', borderRadius:99 }} />
+                            </div>
+                            <div style={{ fontSize:10, color: pct>=100?'var(--accent)':'var(--yellow)', marginTop:2, fontWeight:600 }}>
+                              {Math.round(pct)}%
+                            </div>
+                          </div>
+                        )}
                       </td>
                       <td style={{ ...s, position:'relative' }} onClick={e => { e.stopPropagation(); setChangingId(changingId === p.id ? null : p.id) }}>
                         <span style={{ fontSize:11, padding:'2px 8px', borderRadius:99, fontWeight:500, cursor:'pointer', ...badge }}>

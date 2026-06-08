@@ -39,6 +39,8 @@ export default function NuevoPedidoPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState({
+    folioMode: 'auto' as 'auto' | 'manual',
+    folioManual: '',
     cliente_id: '', fabrica: 'Asturcon',
     fecha_pedido: new Date().toISOString().split('T')[0],
     fecha_compromiso: '', estado: '📥 Nuevo pedido', notas: '',
@@ -75,8 +77,14 @@ export default function NuevoPedidoPage() {
     }
     setSaving(true)
     try {
-      const { count } = await supabase.from('pedidos').select('id', { count: 'exact', head: true })
-      const folio = `P${new Date().getFullYear().toString().slice(-2)}${String((count ?? 0) + 1).padStart(3, '0')}`
+      let folio: string
+      if (form.folioMode === 'manual') {
+        if (!form.folioManual.trim()) { setError('Ingresa el número de folio'); setSaving(false); return }
+        folio = form.folioManual.trim().toUpperCase()
+      } else {
+        const { count } = await supabase.from('pedidos').select('id', { count: 'exact', head: true })
+        folio = `P${new Date().getFullYear().toString().slice(-2)}${String((count ?? 0) + 1).padStart(3, '0')}`
+      }
       const { data: pedido, error: pErr } = await supabase.from('pedidos').insert({
         folio, cliente_id: form.cliente_id, fabrica: form.fabrica,
         fecha_pedido: form.fecha_pedido, fecha_compromiso: form.fecha_compromiso || null,
@@ -147,6 +155,34 @@ export default function NuevoPedidoPage() {
               <div>
                 <label className="label">Fecha compromiso</label>
                 <input type="date" value={form.fecha_compromiso} onChange={e => setForm(f => ({ ...f, fecha_compromiso: e.target.value }))} className="input" />
+              </div>
+            </div>
+            <div>
+              <label className="label">Folio / Número de pedido</label>
+              <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+                <div style={{ display:'flex', border:'1px solid var(--border2)', borderRadius:6, overflow:'hidden', flexShrink:0 }}>
+                  {(['auto','manual'] as const).map(mode => (
+                    <button key={mode} type="button"
+                      onClick={() => setForm(f => ({ ...f, folioMode: mode }))}
+                      style={{ padding:'8px 14px', fontSize:12, border:'none', cursor:'pointer',
+                        background: form.folioMode===mode ? 'var(--accent)' : 'var(--surface2)',
+                        color: form.folioMode===mode ? '#0c0c0c' : 'var(--text2)',
+                        fontWeight: form.folioMode===mode ? 600 : 400,
+                      }}>
+                      {mode === 'auto' ? '⚡ Auto-generar' : '✏ Ingresar'}
+                    </button>
+                  ))}
+                </div>
+                {form.folioMode === 'manual' ? (
+                  <input type="text" value={form.folioManual}
+                    onChange={e => setForm(f => ({ ...f, folioManual: e.target.value }))}
+                    placeholder="Ej. P25001 ó 001-A"
+                    className="input" style={{ flex:1, minWidth:160, textTransform:'uppercase' }} />
+                ) : (
+                  <span style={{ fontSize:12, color:'var(--text3)', fontStyle:'italic' }}>
+                    Se generará automáticamente al guardar
+                  </span>
+                )}
               </div>
             </div>
             <div>

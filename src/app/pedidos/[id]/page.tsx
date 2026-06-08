@@ -70,6 +70,10 @@ export default function PedidoDetalle() {
   const [savingComment, setSavingComment]   = useState(false)
   // Estado historial
   const [historial, setHistorial]           = useState<EstadoHistorial[]>([])
+  // Edición inline de fecha compromiso
+  const [editingFecha, setEditingFecha]     = useState(false)
+  const [fechaInput, setFechaInput]         = useState('')
+  const [savingFecha, setSavingFecha]       = useState(false)
 
   async function load() {
     const [{ data: p }, { data: c }, { data: h }] = await Promise.all([
@@ -117,6 +121,14 @@ export default function PedidoDetalle() {
       }),
     ])
     setEditingEstado(false)
+    load()
+  }
+
+  async function guardarFechaCompromiso() {
+    setSavingFecha(true)
+    await supabase.from('pedidos').update({ fecha_compromiso: fechaInput || null }).eq('id', id)
+    setSavingFecha(false)
+    setEditingFecha(false)
     load()
   }
 
@@ -193,13 +205,38 @@ export default function PedidoDetalle() {
                 {format(new Date(pedido.fecha_pedido),'dd MMM yyyy',{locale:es})}
               </span>
             </div>
-            {pedido.fecha_compromiso && (
-              <div style={{ color:'var(--text3)', marginBottom:3 }}>
-                Compromiso: <span style={{ color:'var(--text)', fontWeight:500 }}>
-                  {format(new Date(pedido.fecha_compromiso),'dd MMM yyyy',{locale:es})}
+            <div style={{ color:'var(--text3)', marginBottom:3, display:'flex', alignItems:'center', gap:6, justifyContent:'flex-end' }}>
+              Compromiso:
+              {editingFecha ? (
+                <span style={{ display:'inline-flex', alignItems:'center', gap:4 }}>
+                  <input type="date" value={fechaInput} onChange={e => setFechaInput(e.target.value)}
+                    onKeyDown={e => { if (e.key==='Enter') guardarFechaCompromiso(); if (e.key==='Escape') setEditingFecha(false) }}
+                    autoFocus
+                    style={{ background:'var(--surface2)', border:'1px solid var(--accent)', borderRadius:5, color:'var(--text)', fontSize:12, padding:'3px 8px' }}
+                  />
+                  <button onClick={guardarFechaCompromiso} disabled={savingFecha}
+                    style={{ background:'var(--accent)', border:'none', color:'#0c0c0c', borderRadius:4, padding:'3px 8px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                    {savingFecha ? '...' : '✓'}
+                  </button>
+                  <button onClick={() => setEditingFecha(false)}
+                    style={{ background:'none', border:'1px solid var(--border2)', color:'var(--text3)', borderRadius:4, padding:'3px 6px', fontSize:12, cursor:'pointer' }}>
+                    ✕
+                  </button>
                 </span>
-              </div>
-            )}
+              ) : (
+                <button onClick={() => { setFechaInput(pedido.fecha_compromiso ?? ''); setEditingFecha(true) }}
+                  title="Click para editar fecha compromiso"
+                  style={{ background:'none', border:'none', cursor:'pointer', padding:'2px 6px', borderRadius:4, fontSize:13, color:'var(--text)', fontWeight:500, transition:'background 0.1s' }}
+                  onMouseEnter={e => (e.currentTarget.style.background='var(--surface2)')}
+                  onMouseLeave={e => (e.currentTarget.style.background='transparent')}
+                >
+                  {pedido.fecha_compromiso
+                    ? `${format(new Date(pedido.fecha_compromiso),'dd MMM yyyy',{locale:es})} ✏`
+                    : <span style={{ color:'var(--text3)', fontStyle:'italic' }}>Sin fecha ✏</span>
+                  }
+                </button>
+              )}
+            </div>
             {pedido.fecha_entregado && (
               <div style={{ color:'var(--text3)', marginBottom:3 }}>
                 Entregado: <span style={{ color:'var(--accent)', fontWeight:600 }}>
