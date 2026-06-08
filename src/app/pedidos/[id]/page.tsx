@@ -165,8 +165,10 @@ export default function PedidoDetalle() {
   const lineasProducto = pedido.lineas_pedido.filter(l => l.tipo === 'producto')
   const totalSolic   = pedido.lineas_pedido.reduce((s,l)=>s+l.metros_solicitados,0)
   const totalEntreg  = pedido.lineas_pedido.reduce((s,l)=>s+(l.metros_entregados??0),0)
-  // Valor de metros: metros × precio/m
-  const totalValorMetros = lineasMetros.reduce((s,l)=>s+(l.metros_solicitados*l.precio),0)
+  // Valor de metros basado en entregados (si existen) o solicitados como estimado
+  const totalValorMetros    = lineasMetros.reduce((s,l)=>s+((l.metros_entregados ?? l.metros_solicitados)*l.precio),0)
+  const totalValorEstimado  = lineasMetros.reduce((s,l)=>s+(l.metros_solicitados*l.precio),0)
+  const valorDifiere        = totalValorMetros !== totalValorEstimado
   // Valor de productos: unidades × precio_unitario
   const totalValorProducto = lineasProducto.reduce((s,l)=>s+((l.unidades??0)*(l.precio_unitario??0)),0)
   const totalValor = totalValorMetros + totalValorProducto
@@ -343,7 +345,17 @@ export default function PedidoDetalle() {
                 {totalEntreg.toLocaleString()} m entregados ({pctEntrega}%)
               </span>
             )}
-            {totalValorMetros > 0 && <span>${totalValorMetros.toLocaleString()}</span>}
+            {totalValorMetros > 0 && (
+              <span>
+                ${totalValorMetros.toLocaleString()}
+                {valorDifiere && (
+                  <span title={`Pedido original: $${totalValorEstimado.toLocaleString()}`}
+                    style={{ marginLeft:6, fontSize:11, color:'var(--yellow)' }}>
+                    (pedido: ${totalValorEstimado.toLocaleString()})
+                  </span>
+                )}
+              </span>
+            )}
           </div>
         </div>
 

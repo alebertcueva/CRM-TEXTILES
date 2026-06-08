@@ -9,6 +9,7 @@ import { format, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 type Linea = { metros_solicitados: number; metros_entregados: number | null; precio: number }
+const metrosReales = (l: Linea) => l.metros_entregados != null ? l.metros_entregados : l.metros_solicitados
 type Pedido = {
   id: string; folio: string; fabrica: string; estado: string
   fecha_pedido: string; fecha_compromiso: string | null; fecha_entregado: string | null
@@ -65,7 +66,7 @@ export default function ClienteDetalle() {
   const activos        = pedidos.filter(p => p.estado !== 'Entregado')
   const entregados     = pedidos.filter(p => p.estado === 'Entregado')
   const totalMetros    = pedidos.reduce((s,p) => s + p.lineas_pedido.reduce((ls,l) => ls+l.metros_solicitados,0), 0)
-  const totalValor     = pedidos.reduce((s,p) => s + p.lineas_pedido.reduce((ls,l) => ls+(l.metros_solicitados*l.precio),0), 0)
+  const totalValor     = pedidos.reduce((s,p) => s + p.lineas_pedido.reduce((ls,l) => ls+(metrosReales(l)*l.precio),0), 0)
   const promDias       = entregados.filter(p=>p.fecha_entregado && p.fecha_pedido).length
     ? Math.round(entregados.filter(p=>p.fecha_entregado).reduce((s,p) =>
         s + differenceInDays(new Date(p.fecha_entregado!), new Date(p.fecha_pedido)), 0
@@ -144,7 +145,7 @@ export default function ClienteDetalle() {
             {filtrados.map(p => {
               const riesgo  = calcularRiesgo(p.fecha_compromiso, p.estado)
               const metros  = p.lineas_pedido.reduce((s,l) => s+l.metros_solicitados, 0)
-              const valor   = p.lineas_pedido.reduce((s,l) => s+(l.metros_solicitados*l.precio), 0)
+              const valor   = p.lineas_pedido.reduce((s,l) => s+(metrosReales(l)*l.precio), 0)
               const badge   = badgeStyle(p.estado)
               const rc      = riesgo==='atrasado'?'var(--red)':riesgo==='revisar'?'var(--yellow)':riesgo==='entregado'?'var(--text3)':'var(--accent)'
               const dias    = p.fecha_compromiso ? differenceInDays(new Date(p.fecha_compromiso), hoy) : null
