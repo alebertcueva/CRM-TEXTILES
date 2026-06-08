@@ -15,19 +15,14 @@ type Pedido = {
   cobros: Cobro[]
 }
 
-/** Usa metros_entregados si ya están registrados; si no, usa metros_solicitados como estimado */
-function metrosBase(l: Linea) {
-  return l.metros_entregados != null ? l.metros_entregados : l.metros_solicitados
-}
 function valorPedido(p: Pedido) {
+  const entregado = p.estado === 'Entregado'
   return (p.lineas_pedido ?? []).reduce((s, l) => {
     if (l.tipo === 'producto') return s + ((l.unidades ?? 0) * (l.precio_unitario ?? 0))
-    return s + (metrosBase(l) * (l.precio ?? 0))
+    // Entregado → metros reales; en curso → metros pedidos como proyección
+    const metros = entregado && l.metros_entregados != null ? l.metros_entregados : l.metros_solicitados
+    return s + (metros * (l.precio ?? 0))
   }, 0)
-}
-/** True si el valor está basado en metros reales entregados (no estimado) */
-function valorEsFinal(p: Pedido) {
-  return (p.lineas_pedido ?? []).some(l => l.tipo !== 'producto' && l.metros_entregados != null)
 }
 function cobrado(p: Pedido) { return (p.cobros ?? []).reduce((s, c) => s + c.monto, 0) }
 
@@ -157,7 +152,6 @@ export default function CobrosPage() {
                 <div style={{ padding:'10px 14px', display:'flex', flexDirection:'column', gap:10 }}>
                   {cPedidos.map(p => {
                     const val    = valorPedido(p)
-                    const esFin  = valorEsFinal(p)
                     const cob    = cobrado(p)
                     const saldo  = val - cob
                     const pct    = val > 0 ? Math.min(cob/val*100, 100) : 0
@@ -169,10 +163,10 @@ export default function CobrosPage() {
                             <Link href={`/pedidos/${p.id}`} style={{ fontWeight:700, color:'var(--accent)', textDecoration:'none', fontSize:14 }}>{p.folio}</Link>
                             {p.fecha_entregado && <span style={{ fontSize:11, color:'var(--text3)' }}>{format(new Date(p.fecha_entregado),'dd MMM yy',{locale:es})}</span>}
                             {/* Indicador estimado vs real */}
-                            {!esFin && (
-                              <span title="Basado en metros pedidos — registra metros entregados para valor final"
-                                style={{ fontSize:10, padding:'1px 6px', borderRadius:99, background:'#2a1f00', color:'var(--yellow)', border:'1px solid #4a3800', cursor:'default' }}>
-                                estimado
+                            {p.estado !== 'Entregado' && (
+                              <span title="Proyección basada en metros del pedido — se ajustará al entregar"
+                                style={{ fontSize:10, padding:'1px 6px', borderRadius:99, background:'var(--surface2)', color:'var(--text3)', border:'1px solid var(--border)', cursor:'default' }}>
+                                proyección
                               </span>
                             )}
                           </div>
@@ -184,7 +178,6 @@ export default function CobrosPage() {
                                 </div>
                                 <div style={{ fontSize:11, color:'var(--text3)' }}>
                                   de ${Math.round(val).toLocaleString()}
-                                  {!esFin && <span style={{ color:'var(--yellow)', marginLeft:3 }}>~</span>}
                                 </div>
                               </div>
                             )}
