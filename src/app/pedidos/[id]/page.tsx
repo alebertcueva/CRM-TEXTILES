@@ -59,7 +59,7 @@ export default function PedidoDetalle() {
   const [editingEstado, setEditingEstado] = useState(false)
   const [nuevoEstado, setNuevoEstado] = useState('')
   // Inline editing — tracks which linea+field is being edited
-  type EditingField = 'metros_entregados' | 'metros_solicitados'
+  type EditingField = 'metros_entregados' | 'metros_solicitados' | 'precio' | 'variante' | 'tela'
   const [editingLinea, setEditingLinea]   = useState<string | null>(null)
   const [editingField, setEditingField]   = useState<EditingField>('metros_entregados')
   const [fieldInput, setFieldInput]       = useState('')
@@ -135,19 +135,30 @@ export default function PedidoDetalle() {
   function startEdit(linea: LineaPedido, field: EditingField) {
     setEditingLinea(linea.id)
     setEditingField(field)
-    setFieldInput(field === 'metros_entregados'
-      ? (linea.metros_entregados?.toString() ?? '')
-      : linea.metros_solicitados.toString()
-    )
+    const val =
+      field === 'metros_entregados' ? (linea.metros_entregados?.toString() ?? '') :
+      field === 'metros_solicitados' ? linea.metros_solicitados.toString() :
+      field === 'precio'    ? linea.precio.toString() :
+      field === 'variante'  ? (linea.variante ?? '') :
+      field === 'tela'      ? linea.tela : ''
+    setFieldInput(val)
   }
 
   async function saveField(lineaId: string) {
     setSavingLinea(true)
-    const val = fieldInput === '' ? null : parseFloat(fieldInput)
-    // metros_solicitados cannot be null
-    const update = editingField === 'metros_entregados'
-      ? { metros_entregados: val }
-      : { metros_solicitados: val ?? 0 }
+    let update: Record<string, string | number | null>
+    if (editingField === 'metros_entregados') {
+      update = { metros_entregados: fieldInput === '' ? null : parseFloat(fieldInput) }
+    } else if (editingField === 'metros_solicitados') {
+      update = { metros_solicitados: parseFloat(fieldInput) || 0 }
+    } else if (editingField === 'precio') {
+      update = { precio: parseFloat(fieldInput) || 0 }
+    } else if (editingField === 'variante') {
+      update = { variante: fieldInput.trim() || null }
+    } else {
+      // tela
+      update = { tela: fieldInput.trim() }
+    }
     await supabase.from('lineas_pedido').update(update).eq('id', lineaId)
     setEditingLinea(null)
     setSavingLinea(false)
@@ -369,33 +380,49 @@ export default function PedidoDetalle() {
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
           <thead>
             <tr style={{ borderBottom:'1px solid var(--border)' }}>
-              <th style={{ textAlign:'left', padding:'6px 0', color:'var(--text3)', fontWeight:500 }}>Tela</th>
-              <th style={{ textAlign:'left', padding:'6px 0', color:'var(--text3)', fontWeight:500 }}>Variante</th>
-              <th style={{ textAlign:'right', padding:'6px 8px', color:'var(--text3)', fontWeight:500 }}>
-                Metros <span style={{ opacity:0.5 }}>✏</span>
-              </th>
-              <th style={{ textAlign:'right', padding:'6px 8px', color:'var(--text3)', fontWeight:500 }}>
-                Entregados <span style={{ opacity:0.5 }}>✏</span>
-              </th>
+              <th style={{ textAlign:'left', padding:'6px 0', color:'var(--text3)', fontWeight:500 }}>Tela <span style={{ opacity:0.4 }}>✏</span></th>
+              <th style={{ textAlign:'left', padding:'6px 0', color:'var(--text3)', fontWeight:500 }}>Variante / Color <span style={{ opacity:0.4 }}>✏</span></th>
+              <th style={{ textAlign:'right', padding:'6px 8px', color:'var(--text3)', fontWeight:500 }}>Metros <span style={{ opacity:0.4 }}>✏</span></th>
+              <th style={{ textAlign:'right', padding:'6px 8px', color:'var(--text3)', fontWeight:500 }}>Entregados <span style={{ opacity:0.4 }}>✏</span></th>
               <th style={{ textAlign:'right', padding:'6px 0', color:'var(--text3)', fontWeight:500 }}>Pendiente</th>
               <th style={{ textAlign:'right', padding:'6px 0', color:'var(--text3)', fontWeight:500 }}>
-                {lineasProducto.length > 0 ? 'Origen' : 'Precio'}
+                {lineasProducto.length > 0 ? 'Origen' : <span>Precio $/m <span style={{ opacity:0.4 }}>✏</span></span>}
               </th>
             </tr>
           </thead>
           <tbody>
             {pedido.lineas_pedido.map(l => {
               const pendiente = l.metros_solicitados - (l.metros_entregados ?? 0)
-              const isEditingSolic  = editingLinea === l.id && editingField === 'metros_solicitados'
-              const isEditingEntreg = editingLinea === l.id && editingField === 'metros_entregados'
+              const isEditingSolic   = editingLinea === l.id && editingField === 'metros_solicitados'
+              const isEditingEntreg  = editingLinea === l.id && editingField === 'metros_entregados'
+              const isEditingTela    = editingLinea === l.id && editingField === 'tela'
+              const isEditingVariant = editingLinea === l.id && editingField === 'variante'
+              const isEditingPrecio  = editingLinea === l.id && editingField === 'precio'
               const esProducto = l.tipo === 'producto'
               return (
                 <tr key={l.id} style={{ borderBottom:'1px solid var(--border)', background: esProducto ? 'rgba(251,191,36,0.03)' : 'transparent' }}>
-                  <td style={{ padding:'10px 0', fontWeight:600, color:'var(--text)' }}>
-                    {esProducto && <span style={{ fontSize:10, marginRight:5, color:'#fbbf24' }}>📦</span>}
-                    {l.tela}
+                  <td style={{ padding:'4px 0' }}>
+                    {isEditingTela ? (
+                      <InlineInput value={fieldInput} onChange={setFieldInput} onSave={() => saveField(l.id)} onCancel={cancelEdit} saving={savingLinea} type="text" />
+                    ) : (
+                      <EditableCell
+                        value={<>{esProducto && <span style={{ fontSize:10, marginRight:5, color:'#fbbf24' }}>📦</span>}{l.tela}</>}
+                        onClick={() => startEdit(l, 'tela')}
+                        color="var(--text)" fontWeight={600} title="Click para editar tela"
+                      />
+                    )}
                   </td>
-                  <td style={{ padding:'10px 0', color:'var(--text3)' }}>{l.variante ?? '—'}</td>
+                  <td style={{ padding:'4px 0' }}>
+                    {isEditingVariant ? (
+                      <InlineInput value={fieldInput} onChange={setFieldInput} onSave={() => saveField(l.id)} onCancel={cancelEdit} saving={savingLinea} type="text" placeholder="Color o variante..." />
+                    ) : (
+                      <EditableCell
+                        value={l.variante ?? '—'}
+                        onClick={() => startEdit(l, 'variante')}
+                        color="var(--text3)" title="Click para editar variante / color"
+                      />
+                    )}
+                  </td>
                   <td style={{ padding:'4px 8px', textAlign:'right' }}>
                     {isEditingSolic ? (
                       <InlineInput value={fieldInput} onChange={setFieldInput} onSave={() => saveField(l.id)} onCancel={cancelEdit} saving={savingLinea} />
@@ -418,10 +445,18 @@ export default function PedidoDetalle() {
                   <td style={{ padding:'10px 0', textAlign:'right', color: pendiente > 0 ? 'var(--text2)' : 'var(--accent)', fontSize:12 }}>
                     {pendiente > 0 ? `${pendiente.toLocaleString()} m` : '✓'}
                   </td>
-                  <td style={{ padding:'10px 0', textAlign:'right', color:'var(--text3)', fontSize:12 }}>
-                    {esProducto
-                      ? `${(l.unidades??0).toLocaleString()} u × ${l.consumo_por_unidad}m`
-                      : (l.precio > 0 ? `$${l.precio}/m` : '—')}
+                  <td style={{ padding:'4px 0', textAlign:'right', fontSize:12 }}>
+                    {esProducto ? (
+                      <span style={{ color:'var(--text3)' }}>{(l.unidades??0).toLocaleString()} u × {l.consumo_por_unidad}m</span>
+                    ) : isEditingPrecio ? (
+                      <InlineInput value={fieldInput} onChange={setFieldInput} onSave={() => saveField(l.id)} onCancel={cancelEdit} saving={savingLinea} type="number" />
+                    ) : (
+                      <EditableCell
+                        value={l.precio > 0 ? `$${l.precio}/m` : '— $/m'}
+                        onClick={() => startEdit(l, 'precio')}
+                        color="var(--text3)" title="Click para editar precio por metro"
+                      />
+                    )}
                   </td>
                 </tr>
               )
@@ -559,18 +594,19 @@ export default function PedidoDetalle() {
 
 // ── Helper components ──────────────────────────────────────────────────────
 
-function InlineInput({ value, onChange, onSave, onCancel, saving }: {
+function InlineInput({ value, onChange, onSave, onCancel, saving, type = 'number', placeholder }: {
   value: string; onChange: (v: string) => void
   onSave: () => void; onCancel: () => void; saving: boolean
+  type?: 'number' | 'text'; placeholder?: string
 }) {
   return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:4 }}>
       <input
-        type="number" value={value} autoFocus
+        type={type} value={value} autoFocus placeholder={placeholder}
         onChange={e => onChange(e.target.value)}
         onKeyDown={e => { if (e.key==='Enter') onSave(); if (e.key==='Escape') onCancel() }}
-        style={{ width:80, padding:'4px 8px', background:'var(--surface2)', border:'1px solid var(--accent)', borderRadius:6, color:'var(--text)', fontSize:13, textAlign:'right' }}
-        min="0" step="any"
+        style={{ width: type === 'text' ? 130 : 80, padding:'4px 8px', background:'var(--surface2)', border:'1px solid var(--accent)', borderRadius:6, color:'var(--text)', fontSize:13, textAlign: type === 'number' ? 'right' : 'left' }}
+        min={type === 'number' ? 0 : undefined} step={type === 'number' ? 'any' : undefined}
       />
       <button onClick={onSave} disabled={saving}
         style={{ background:'var(--accent)', border:'none', color:'#0c0c0c', borderRadius:5, padding:'4px 9px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
@@ -584,18 +620,19 @@ function InlineInput({ value, onChange, onSave, onCancel, saving }: {
   )
 }
 
-function EditableCell({ value, onClick, color, title }: {
-  value: string; onClick: () => void; color: string; title: string
+function EditableCell({ value, onClick, color, title, fontWeight }: {
+  value: React.ReactNode; onClick: () => void; color: string; title: string; fontWeight?: number
 }) {
   return (
     <button onClick={onClick} title={title} style={{
-      background:'none', border:'none', cursor:'pointer', fontSize:13, textAlign:'right',
-      color, padding:'4px 8px', borderRadius:6, transition:'background 0.1s', width:'100%',
+      background:'none', border:'none', cursor:'pointer', fontSize:13, textAlign:'left',
+      color, fontWeight: fontWeight ?? 400,
+      padding:'6px 8px', borderRadius:6, transition:'background 0.1s', width:'100%', display:'block',
     }}
       onMouseEnter={e => (e.currentTarget.style.background='var(--surface2)')}
       onMouseLeave={e => (e.currentTarget.style.background='transparent')}
     >
-      {value} ✏
+      {value} <span style={{ opacity:0.4, fontSize:11 }}>✏</span>
     </button>
   )
 }
