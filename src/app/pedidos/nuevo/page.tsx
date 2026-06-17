@@ -54,7 +54,7 @@ export default function NuevoPedidoPage() {
     supabase.from('clientes').select('id,nombre').order('nombre').then(({ data }) => setClientes(data ?? []))
   }, [])
 
-  async function crearCliente(e: React.FormEvent) {
+  async function crearCliente(e: React.MouseEvent | React.KeyboardEvent) {
     e.preventDefault()
     if (!nuevoClienteNombre.trim()) return
     setSavingCliente(true)
@@ -146,19 +146,20 @@ export default function NuevoPedidoPage() {
             <div>
               <label className="label">Cliente</label>
               {creandoCliente ? (
-                <form onSubmit={crearCliente} style={{ display:'flex', gap:8 }}>
+                <div style={{ display:'flex', gap:8 }}>
                   <input
                     autoFocus type="text" value={nuevoClienteNombre}
                     onChange={e => setNuevoClienteNombre(e.target.value)}
                     placeholder="Nombre del cliente nuevo..."
                     className="input" style={{ flex:1 }}
-                    onKeyDown={e => e.key === 'Escape' && setCreandoCliente(false)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); crearCliente(e as any) } if (e.key === 'Escape') setCreandoCliente(false) }}
                   />
-                  <button type="submit" disabled={savingCliente || !nuevoClienteNombre.trim()} className="btn-primary">
+                  <button type="button" disabled={savingCliente || !nuevoClienteNombre.trim()} className="btn-primary"
+                    onClick={e => crearCliente(e as any)}>
                     {savingCliente ? '...' : 'Crear'}
                   </button>
                   <button type="button" onClick={() => setCreandoCliente(false)} className="btn-ghost">✕</button>
-                </form>
+                </div>
               ) : (
                 <div style={{ display:'flex', gap:8 }}>
                   <select value={form.cliente_id} onChange={e => setForm(f => ({ ...f, cliente_id: e.target.value }))} className="input" style={{ flex:1 }} required>
