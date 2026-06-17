@@ -38,6 +38,9 @@ export default function NuevoPedidoPage() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [nuevoClienteNombre, setNuevoClienteNombre] = useState('')
+  const [creandoCliente, setCreandoCliente] = useState(false)
+  const [savingCliente, setSavingCliente] = useState(false)
   const [form, setForm] = useState({
     folioMode: 'auto' as 'auto' | 'manual',
     folioManual: '',
@@ -50,6 +53,20 @@ export default function NuevoPedidoPage() {
   useEffect(() => {
     supabase.from('clientes').select('id,nombre').order('nombre').then(({ data }) => setClientes(data ?? []))
   }, [])
+
+  async function crearCliente(e: React.FormEvent) {
+    e.preventDefault()
+    if (!nuevoClienteNombre.trim()) return
+    setSavingCliente(true)
+    const { data } = await supabase.from('clientes').insert({ nombre: nuevoClienteNombre.trim() }).select().single()
+    if (data) {
+      setClientes(prev => [...prev, data as Cliente].sort((a, b) => a.nombre.localeCompare(b.nombre)))
+      setForm(f => ({ ...f, cliente_id: (data as Cliente).id }))
+    }
+    setNuevoClienteNombre('')
+    setCreandoCliente(false)
+    setSavingCliente(false)
+  }
 
   function setLinea(i: number, field: keyof Linea, value: string) {
     setLineas(prev => prev.map((l, idx) => idx === i ? { ...l, [field]: value } : l))
@@ -128,10 +145,32 @@ export default function NuevoPedidoPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
               <label className="label">Cliente</label>
-              <select value={form.cliente_id} onChange={e => setForm(f => ({ ...f, cliente_id: e.target.value }))} className="input" required>
-                <option value="">Seleccionar cliente...</option>
-                {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-              </select>
+              {creandoCliente ? (
+                <form onSubmit={crearCliente} style={{ display:'flex', gap:8 }}>
+                  <input
+                    autoFocus type="text" value={nuevoClienteNombre}
+                    onChange={e => setNuevoClienteNombre(e.target.value)}
+                    placeholder="Nombre del cliente nuevo..."
+                    className="input" style={{ flex:1 }}
+                    onKeyDown={e => e.key === 'Escape' && setCreandoCliente(false)}
+                  />
+                  <button type="submit" disabled={savingCliente || !nuevoClienteNombre.trim()} className="btn-primary">
+                    {savingCliente ? '...' : 'Crear'}
+                  </button>
+                  <button type="button" onClick={() => setCreandoCliente(false)} className="btn-ghost">✕</button>
+                </form>
+              ) : (
+                <div style={{ display:'flex', gap:8 }}>
+                  <select value={form.cliente_id} onChange={e => setForm(f => ({ ...f, cliente_id: e.target.value }))} className="input" style={{ flex:1 }} required>
+                    <option value="">Seleccionar cliente...</option>
+                    {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                  </select>
+                  <button type="button" onClick={() => setCreandoCliente(true)}
+                    className="btn-ghost" style={{ whiteSpace:'nowrap', flexShrink:0 }}>
+                    + Nuevo cliente
+                  </button>
+                </div>
+              )}
             </div>
             <div className="form-grid-2" style={S.grid2}>
               <div>
