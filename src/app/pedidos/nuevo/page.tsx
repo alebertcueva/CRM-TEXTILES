@@ -99,15 +99,20 @@ export default function NuevoPedidoPage() {
         if (!form.folioManual.trim()) { setError('Ingresa el número de folio'); setSaving(false); return }
         folio = form.folioManual.trim().toUpperCase()
       } else {
-        const { count } = await supabase.from('pedidos').select('id', { count: 'exact', head: true })
-        folio = `P${new Date().getFullYear().toString().slice(-2)}${String((count ?? 0) + 1).padStart(3, '0')}`
+        const yy = new Date().getFullYear().toString().slice(-2)
+        const prefix = `P${yy}`
+        const { data: ultimos } = await supabase.from('pedidos')
+          .select('folio').ilike('folio', `${prefix}%`).order('folio', { ascending: false }).limit(1)
+        const ultimo = ultimos?.[0]?.folio
+        const siguienteNum = ultimo ? (parseInt(ultimo.replace(prefix, '')) || 0) + 1 : 1
+        folio = `${prefix}${String(siguienteNum).padStart(3, '0')}`
       }
       const { data: pedido, error: pErr } = await supabase.from('pedidos').insert({
         folio, cliente_id: form.cliente_id, fabrica: form.fabrica,
         fecha_pedido: form.fecha_pedido, fecha_compromiso: form.fecha_compromiso || null,
         estado: form.estado, notas: form.notas || null,
       }).select().single()
-      if (pErr) throw pErr
+      if (pErr) throw new Error(pErr.message ?? pErr.code ?? JSON.stringify(pErr))
 
       await supabase.from('lineas_pedido').insert(lineas.map(l => ({
         pedido_id: pedido.id,
@@ -123,7 +128,8 @@ export default function NuevoPedidoPage() {
       })))
       router.push(`/pedidos/${pedido.id}`)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al guardar')
+      const msg = err instanceof Error ? err.message : (err as any)?.message ?? JSON.stringify(err)
+      setError(msg || 'Error al guardar')
       setSaving(false)
     }
   }

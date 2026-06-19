@@ -3,14 +3,15 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { format } from 'date-fns'
+import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
 type Cobro = { id: string; pedido_id: string; monto: number; fecha: string; notas: string | null }
-type Linea = { metros_solicitados: number; metros_entregados: number | null; precio: number; tipo: string; unidades: number | null; precio_unitario: number | null }
+type Linea = { metros_solicitados: number; metros_entregados: number | null; precio: number; tipo: string; unidades: number | null; precio_unitario: number | null; tela: string; variante: string | null; descripcion_producto: string | null }
 type Pedido = {
-  id: string; folio: string; estado: string; fecha_entregado: string | null
-  clientes: { id: string; nombre: string } | null
+  id: string; folio: string; estado: string; fecha_entregado: string | null; fabrica: string
+  clientes: { id: string; nombre: string; dias_credito: number | null } | null
   lineas_pedido: Linea[]
   cobros: Cobro[]
 }
@@ -35,11 +36,32 @@ export default function CobrosPage() {
   const [fecha, setFecha]         = useState(new Date().toISOString().split('T')[0])
   const [notas, setNotas]         = useState('')
   const [saving, setSaving]       = useState(false)
+  const [todosCobros, setTodosCobros] = useState<{monto:number; fecha:string}[]>([])
+  const [editingCredito, setEditingCredito] = useState<string | null>(null)
+  const [creditoVal, setCreditoVal]         = useState('')
+
+  async function guardarCredito(clienteId: string) {
+    const dias = parseInt(creditoVal)
+    if (!isNaN(dias) && dias > 0) {
+      await supabase.from('clientes').update({ dias_credito: dias }).eq('id', clienteId)
+      load()
+    }
+    setEditingCredito(null)
+  }
+
+  const IVA = 0.16
+  const iva  = (v: number) => v * (1 + IVA)
+  const fmt  = (v: number) => Math.round(iva(v)).toLocaleString()
+  function compact(v: number) {
+    if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`
+    if (v >= 1_000)     return `$${Math.round(v / 1000)}K`
+    return `$${Math.round(v)}`
+  }
 
   async function load() {
     const [{ data: pData }, { data: cData }] = await Promise.all([
       supabase.from('pedidos')
-        .select('id,folio,estado,fecha_entregado,clientes(id,nombre),lineas_pedido(metros_solicitados,metros_entregados,precio,tipo,unidades,precio_unitario)')
+        .select('id,folio,estado,fecha_entregado,fabrica,clientes(id,nombre,dias_credito),lineas_pedido(metros_solicitados,metros_entregados,precio,tipo,unidades,precio_unitario,tela,variante,descripcion_producto)')
         .order('fecha_entregado', { ascending: false, nullsFirst: false }),
       supabase.from('cobros').select('id,pedido_id,monto,fecha,notas'),
     ])
@@ -50,6 +72,7 @@ export default function CobrosPage() {
     })
     const merged = (pData as unknown as Pedido[])?.map(p => ({ ...p, cobros: cobrosMap[p.id] ?? [] })) ?? []
     setPedidos(merged)
+    setTodosCobros((cData ?? []).map((c: any) => ({ monto: c.monto, fecha: c.fecha })))
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -58,8 +81,10 @@ export default function CobrosPage() {
     e.preventDefault()
     if (!addingTo || !monto) return
     setSaving(true)
-    await supabase.from('cobros').insert({ pedido_id: addingTo.id, monto: parseFloat(monto), fecha, notas: notas || null })
-    setAddingTo(null); setMonto(''); setNotas(''); setSaving(false)
+    const { error } = await supabase.from('cobros').insert({ pedido_id: addingTo.id, monto: parseFloat(monto), fecha, notas: notas || null })
+    setSaving(false)
+    if (error) { alert('Error al guardar: ' + error.message); return }
+    setAddingTo(null); setMonto(''); setNotas('')
     load()
   }
   async function borrarCobro(cobroId: string) {
@@ -68,12 +93,13 @@ export default function CobrosPage() {
   }
 
   // Group by client
-  const porCliente: Record<string, { nombre: string; clienteId: string; pedidos: Pedido[] }> = {}
+  const porCliente: Record<string, { nombre: string; clienteId: string; diasCredito: number | null; pedidos: Pedido[] }> = {}
   pedidos.forEach(p => {
     if (!(p.estado === 'Entregado' || p.fecha_entregado)) return
-    const clienteId = p.clientes?.id ?? 'sin-cliente'
-    const nombre    = p.clientes?.nombre ?? 'Sin cliente'
-    if (!porCliente[clienteId]) porCliente[clienteId] = { nombre, clienteId, pedidos: [] }
+    const clienteId  = p.clientes?.id ?? 'sin-cliente'
+    const nombre     = p.clientes?.nombre ?? 'Sin cliente'
+    const diasCredito = p.clientes?.dias_credito ?? null
+    if (!porCliente[clienteId]) porCliente[clienteId] = { nombre, clienteId, diasCredito, pedidos: [] }
     const val = valorPedido(p), cob = cobrado(p)
     if (filtro === 'pendiente' && cob >= val && val > 0) return
     if (filtro === 'cobrado'   && !(cob >= val && val > 0)) return
@@ -86,21 +112,82 @@ export default function CobrosPage() {
 
   const clientes = Object.values(porCliente).filter(c => c.pedidos.length > 0)
 
+  // Histórico mensual — últimos 12 meses
+  const hoy = new Date()
+  const mesesHistorico = Array.from({ length: 12 }, (_, i) => {
+    const mes = subMonths(hoy, 11 - i)
+    const inicio = startOfMonth(mes)
+    const fin    = endOfMonth(mes)
+    const total  = todosCobros
+      .filter(c => { const f = new Date(c.fecha); return f >= inicio && f <= fin })
+      .reduce((s, c) => s + c.monto, 0)
+    return {
+      mes: format(mes, 'MMM yy', { locale: es }),
+      total,
+      esActual: i === 11,
+    }
+  })
+  const cobradoEsteMes = mesesHistorico[11].total
+  const cobradoMesAnterior = mesesHistorico[10].total
+  const variacion = cobradoMesAnterior > 0 ? ((cobradoEsteMes - cobradoMesAnterior) / cobradoMesAnterior) * 100 : null
+
   return (
     <div>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:10 }}>
         <h1 style={{ fontSize:22, fontWeight:700, margin:0 }}>Cobros</h1>
+        <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:99, padding:'4px 10px' }}>IVA 16% incluido</span>
+      </div>
+
+      {/* Este mes + histórico */}
+      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:'16px 16px 10px', marginBottom:16 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12, flexWrap:'wrap', gap:8 }}>
+          <div>
+            <div style={{ fontSize:11, color:'var(--text3)', marginBottom:2, textTransform:'uppercase', letterSpacing:'0.05em' }}>
+              {format(hoy, 'MMMM yyyy', { locale: es })}
+            </div>
+            <div style={{ fontSize:28, fontWeight:700, color:'var(--accent)', lineHeight:1 }}>
+              {compact(cobradoEsteMes)}
+            </div>
+            <div style={{ fontSize:10, color:'var(--text3)', marginTop:3 }}>cobrado este mes</div>
+          </div>
+          {variacion !== null && (
+            <div style={{
+              fontSize:13, fontWeight:700, padding:'4px 10px', borderRadius:8,
+              background: variacion >= 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
+              color: variacion >= 0 ? 'var(--accent)' : 'var(--red)',
+            }}>
+              {variacion >= 0 ? '▲' : '▼'} {Math.abs(Math.round(variacion))}% vs mes anterior
+            </div>
+          )}
+        </div>
+        <ResponsiveContainer width="100%" height={120}>
+          <BarChart data={mesesHistorico} barSize={18} margin={{ top:4, right:0, left:0, bottom:0 }}>
+            <XAxis dataKey="mes" tick={{ fontSize:10, fill:'var(--text3)' }} axisLine={false} tickLine={false} />
+            <YAxis hide />
+            <Tooltip
+              formatter={(v: unknown) => [compact(Number(v ?? 0)), 'Cobrado']}
+              contentStyle={{ background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, fontSize:12 }}
+              cursor={{ fill:'rgba(255,255,255,0.04)' }}
+            />
+            <Bar dataKey="total" radius={[4,4,0,0]}>
+              {mesesHistorico.map((m, i) => (
+                <Cell key={i} fill={m.esActual ? 'var(--accent)' : 'var(--border2)'} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
       {/* Stats */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:20 }}>
         {[
-          { label:'Facturado', value:`$${Math.round(totalFacturado/1000)}K`,   color:'var(--text)' },
-          { label:'Cobrado',   value:`$${Math.round(totalCobrado/1000)}K`,     color:'var(--accent)' },
-          { label:'Debe',      value:`$${Math.round(totalDeuda/1000)}K`,       color: totalDeuda>0?'var(--red)':'var(--accent)' },
-        ].map(({ label, value, color }) => (
+          { label:'Facturado', raw: totalFacturado,  color:'var(--text)' },
+          { label:'Cobrado',   raw: totalCobrado,    color:'var(--accent)' },
+          { label:'Debe',      raw: totalDeuda,      color: totalDeuda>0?'var(--red)':'var(--accent)' },
+        ].map(({ label, raw, color }) => (
           <div key={label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, padding:'14px 12px' }}>
-            <div style={{ fontSize:20, fontWeight:700, color }}>{value}</div>
+            <div style={{ fontSize:18, fontWeight:700, color }}>{compact(iva(raw))}</div>
+            <div style={{ fontSize:10, color:'var(--text3)', marginTop:1 }}>s/IVA {compact(raw)}</div>
             <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{label}</div>
           </div>
         ))}
@@ -129,7 +216,7 @@ export default function CobrosPage() {
         </div>
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-          {clientes.map(({ nombre, clienteId, pedidos: cPedidos }) => {
+          {clientes.map(({ nombre, clienteId, diasCredito, pedidos: cPedidos }) => {
             const totalC   = cPedidos.reduce((s,p)=>s+valorPedido(p),0)
             const cobradoC = cPedidos.reduce((s,p)=>s+cobrado(p),0)
             const deudaC   = totalC - cobradoC
@@ -137,13 +224,34 @@ export default function CobrosPage() {
               <div key={clienteId} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, overflow:'hidden' }}>
                 {/* Header cliente */}
                 <div style={{ padding:'12px 14px', background:'var(--surface2)', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:8 }}>
-                  <Link href={`/clientes/${clienteId}`} style={{ fontWeight:700, fontSize:15, color:'var(--text)', textDecoration:'none' }}>
-                    {nombre}
-                  </Link>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <Link href={`/clientes/${clienteId}`} style={{ fontWeight:700, fontSize:15, color:'var(--text)', textDecoration:'none' }}>
+                      {nombre}
+                    </Link>
+                    {editingCredito === clienteId ? (
+                      <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                        <input autoFocus type="number" value={creditoVal} onChange={e => setCreditoVal(e.target.value)}
+                          onBlur={() => guardarCredito(clienteId)}
+                          onKeyDown={e => { if (e.key==='Enter') guardarCredito(clienteId); if (e.key==='Escape') setEditingCredito(null) }}
+                          style={{ width:52, fontSize:12, padding:'2px 6px', borderRadius:6, border:'1px solid var(--accent)', background:'var(--surface)', color:'var(--text)', textAlign:'center' }}
+                        />
+                        <span style={{ fontSize:11, color:'var(--text3)' }}>días</span>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setEditingCredito(clienteId); setCreditoVal(String(diasCredito ?? '')) }}
+                        title="Condiciones de pago — clic para editar"
+                        style={{ fontSize:11, padding:'2px 8px', borderRadius:99, cursor:'pointer',
+                          background: diasCredito ? 'var(--surface)' : 'rgba(234,179,8,0.1)',
+                          border: `1px solid ${diasCredito ? 'var(--border)' : 'rgba(234,179,8,0.4)'}`,
+                          color: diasCredito ? 'var(--text3)' : 'var(--yellow)' }}>
+                        {diasCredito ? `${diasCredito}d crédito` : '+ crédito'}
+                      </button>
+                    )}
+                  </div>
                   <div style={{ display:'flex', gap:12, fontSize:12, flexWrap:'wrap' }}>
-                    <span style={{ color:'var(--text3)' }}>Total: <span style={{ color:'var(--text)', fontWeight:600 }}>${Math.round(totalC).toLocaleString()}</span></span>
+                    <span style={{ color:'var(--text3)' }}>Total c/IVA: <span style={{ color:'var(--text)', fontWeight:600 }}>${fmt(totalC)}</span></span>
                     <span style={{ color:'var(--text3)' }}>Cobrado: <span style={{ color:'var(--accent)', fontWeight:600 }}>${Math.round(cobradoC).toLocaleString()}</span></span>
-                    {deudaC > 0 && <span style={{ color:'var(--red)', fontWeight:700 }}>Debe: ${Math.round(deudaC).toLocaleString()}</span>}
+                    {deudaC > 0 && <span style={{ color:'var(--red)', fontWeight:700 }}>Debe: ${fmt(deudaC)}</span>}
                     {deudaC <= 0 && totalC > 0 && <span style={{ color:'var(--accent)', fontWeight:700 }}>✓ Al corriente</span>}
                   </div>
                 </div>
@@ -155,13 +263,35 @@ export default function CobrosPage() {
                     const cob    = cobrado(p)
                     const saldo  = val - cob
                     const pct    = val > 0 ? Math.min(cob/val*100, 100) : 0
+                    const diasSinPagar = saldo > 0 && p.fecha_entregado
+                      ? Math.floor((Date.now() - new Date(p.fecha_entregado).getTime()) / 86_400_000)
+                      : null
+                    const vencido = diasSinPagar !== null && diasCredito !== null && diasSinPagar > diasCredito
                     return (
                       <div key={p.id} style={{ border:'1px solid var(--border)', borderRadius:8, overflow:'hidden' }}>
                         {/* Fila principal */}
                         <div style={{ padding:'10px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
                           <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', flex:1 }}>
                             <Link href={`/pedidos/${p.id}`} style={{ fontWeight:700, color:'var(--accent)', textDecoration:'none', fontSize:14 }}>{p.folio}</Link>
+                            <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:4, padding:'1px 6px' }}>{p.fabrica}</span>
                             {p.fecha_entregado && <span style={{ fontSize:11, color:'var(--text3)' }}>{format(new Date(p.fecha_entregado),'dd MMM yy',{locale:es})}</span>}
+                            {/* Telas y variantes */}
+                            <span style={{ fontSize:11, color:'var(--text3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:200 }}>
+                              {p.lineas_pedido.map(l => {
+                                const nombre = l.tipo === 'producto' ? (l.descripcion_producto ?? l.tela) : l.tela
+                                return nombre + (l.variante ? ` (${l.variante})` : '')
+                              }).join(' · ')}
+                            </span>
+                            {diasSinPagar !== null && (
+                              <span style={{
+                                fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:99,
+                                background: vencido ? 'rgba(239,68,68,0.15)' : 'var(--surface2)',
+                                color: vencido ? 'var(--red)' : 'var(--text3)',
+                                border: `1px solid ${vencido ? 'rgba(239,68,68,0.3)' : 'var(--border)'}`,
+                              }}>
+                                {diasSinPagar}d
+                              </span>
+                            )}
                             {/* Indicador estimado vs real */}
                             {p.estado !== 'Entregado' && (
                               <span title="Proyección basada en metros del pedido — se ajustará al entregar"
@@ -174,14 +304,17 @@ export default function CobrosPage() {
                             {val > 0 && (
                               <div style={{ textAlign:'right' }}>
                                 <div style={{ fontSize:13, fontWeight:700, color: saldo>0?'var(--red)':'var(--accent)' }}>
-                                  {saldo>0 ? `Debe $${Math.round(saldo).toLocaleString()}` : '✓ Cobrado'}
+                                  {saldo>0 ? `Debe $${fmt(saldo)}` : '✓ Cobrado'}
                                 </div>
-                                <div style={{ fontSize:11, color:'var(--text3)' }}>
-                                  de ${Math.round(val).toLocaleString()}
+                                <div style={{ fontSize:12, fontWeight:600, color:'var(--text)' }}>
+                                  ${fmt(val)} <span style={{ fontSize:10, fontWeight:400, color:'var(--text3)' }}>c/IVA</span>
+                                </div>
+                                <div style={{ fontSize:10, color:'var(--text3)' }}>
+                                  s/IVA ${Math.round(val).toLocaleString()}
                                 </div>
                               </div>
                             )}
-                            <button onClick={() => { setAddingTo(p); setMonto(saldo>0?String(Math.round(saldo)):''); setFecha(new Date().toISOString().split('T')[0]); setNotas('') }}
+                            <button onClick={() => { setAddingTo(p); setMonto(saldo>0?String(Math.round(iva(saldo))):''); setFecha(new Date().toISOString().split('T')[0]); setNotas('') }}
                               style={{ background:'var(--accent)', border:'none', color:'#0c0c0c', borderRadius:6, padding:'7px 12px', fontSize:12, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
                               + Cobro
                             </button>
@@ -233,7 +366,10 @@ export default function CobrosPage() {
             <h2 style={{ fontSize:16, fontWeight:700, margin:'0 0 4px' }}>Registrar cobro</h2>
             <p style={{ fontSize:13, color:'var(--text3)', margin:'0 0 18px' }}>
               {addingTo.folio} · {addingTo.clientes?.nombre}
-              {valorPedido(addingTo) > 0 && ` · Saldo: $${Math.round(valorPedido(addingTo)-cobrado(addingTo)).toLocaleString()}`}
+              {valorPedido(addingTo) > 0 && (() => {
+                const saldoModal = valorPedido(addingTo) - cobrado(addingTo)
+                return ` · Saldo c/IVA: $${Math.round(iva(saldoModal)).toLocaleString()} (s/IVA $${Math.round(saldoModal).toLocaleString()})`
+              })()}
             </p>
             <form onSubmit={registrarCobro} style={{ display:'flex', flexDirection:'column', gap:12 }}>
               <div>

@@ -17,6 +17,9 @@ type LineaPedido = {
   precio_unitario: number | null
   consumo_por_unidad: number | null
 }
+type Entrega = {
+  id: string; linea_pedido_id: string; metros: number; fecha: string; notas: string | null; created_at: string
+}
 type Acabado = {
   id: string; folio_proceso: string; tipo_proceso: string; proveedor: string
   metros_enviados: number; metros_recibidos: number | null; segundas: number | null
@@ -59,7 +62,7 @@ export default function PedidoDetalle() {
   const [editingEstado, setEditingEstado] = useState(false)
   const [nuevoEstado, setNuevoEstado] = useState('')
   // Inline editing — tracks which linea+field is being edited
-  type EditingField = 'metros_entregados' | 'metros_solicitados' | 'precio' | 'variante' | 'tela'
+  type EditingField = 'metros_solicitados' | 'precio' | 'variante' | 'tela' | 'metros_entregados'
   const [editingLinea, setEditingLinea]   = useState<string | null>(null)
   const [editingField, setEditingField]   = useState<EditingField>('metros_entregados')
   const [fieldInput, setFieldInput]       = useState('')
@@ -74,6 +77,14 @@ export default function PedidoDetalle() {
   const [editingFecha, setEditingFecha]     = useState(false)
   const [fechaInput, setFechaInput]         = useState('')
   const [savingFecha, setSavingFecha]       = useState(false)
+  // Entregas parciales
+  const [entregas, setEntregas]             = useState<Record<string, Entrega[]>>({})
+  const [addingEntrega, setAddingEntrega]   = useState<LineaPedido | null>(null)
+  const [editingEntrega, setEditingEntrega] = useState<Entrega | null>(null)
+  const [entregaMetros, setEntregaMetros]   = useState('')
+  const [entregaFecha, setEntregaFecha]     = useState(new Date().toISOString().split('T')[0])
+  const [entregaNotas, setEntregaNotas]     = useState('')
+  const [savingEntrega, setSavingEntrega]   = useState(false)
 
   async function load() {
     const [{ data: p }, { data: c }, { data: h }] = await Promise.all([
@@ -84,6 +95,20 @@ export default function PedidoDetalle() {
     setPedido(p as Pedido)
     setComentarios((c as Comentario[]) ?? [])
     setHistorial((h as EstadoHistorial[]) ?? [])
+    // Cargar entregas de todas las líneas de este pedido
+    const lineaIds = ((p as Pedido)?.lineas_pedido ?? []).map(l => l.id)
+    if (lineaIds.length > 0) {
+      const { data: e } = await supabase
+        .from('entregas').select('*')
+        .in('linea_pedido_id', lineaIds)
+        .order('fecha', { ascending: true })
+      const map: Record<string, Entrega[]> = {}
+      ;(e ?? []).forEach((ent: Entrega) => {
+        if (!map[ent.linea_pedido_id]) map[ent.linea_pedido_id] = []
+        map[ent.linea_pedido_id].push(ent)
+      })
+      setEntregas(map)
+    }
     setLoading(false)
   }
 
@@ -105,6 +130,53 @@ export default function PedidoDetalle() {
   }
 
   useEffect(() => { load() }, [id])
+
+  async function agregarEntrega(e: React.FormEvent) {
+    e.preventDefault()
+    if (!addingEntrega || !entregaMetros) return
+    setSavingEntrega(true)
+    await supabase.from('entregas').insert({
+      linea_pedido_id: addingEntrega.id,
+      metros: parseFloat(entregaMetros),
+      fecha: entregaFecha,
+      notas: entregaNotas || null,
+    })
+    // Actualizar metros_entregados en la linea = suma de todas las entregas
+    const nuevasEntregas = [...(entregas[addingEntrega.id] ?? []), { metros: parseFloat(entregaMetros) }]
+    const nuevoTotal = nuevasEntregas.reduce((s, en) => s + en.metros, 0)
+    await supabase.from('lineas_pedido').update({ metros_entregados: nuevoTotal }).eq('id', addingEntrega.id)
+    setAddingEntrega(null); setEntregaMetros(''); setEntregaNotas('')
+    setSavingEntrega(false)
+    load()
+  }
+
+  async function guardarEdicionEntrega(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editingEntrega || !entregaMetros) return
+    setSavingEntrega(true)
+    await supabase.from('entregas').update({
+      metros: parseFloat(entregaMetros),
+      fecha: entregaFecha,
+      notas: entregaNotas || null,
+    }).eq('id', editingEntrega.id)
+    // Recalcular metros_entregados en la linea
+    const todasEntregas = (entregas[editingEntrega.linea_pedido_id] ?? []).map(en =>
+      en.id === editingEntrega.id ? { ...en, metros: parseFloat(entregaMetros) } : en
+    )
+    const nuevoTotal = todasEntregas.reduce((s, en) => s + en.metros, 0)
+    await supabase.from('lineas_pedido').update({ metros_entregados: nuevoTotal }).eq('id', editingEntrega.linea_pedido_id)
+    setEditingEntrega(null); setEntregaMetros(''); setEntregaNotas('')
+    setSavingEntrega(false)
+    load()
+  }
+
+  async function borrarEntrega(entrega: Entrega) {
+    await supabase.from('entregas').delete().eq('id', entrega.id)
+    const restantes = (entregas[entrega.linea_pedido_id] ?? []).filter(e => e.id !== entrega.id)
+    const nuevoTotal = restantes.reduce((s, e) => s + e.metros, 0)
+    await supabase.from('lineas_pedido').update({ metros_entregados: nuevoTotal > 0 ? nuevoTotal : null }).eq('id', entrega.linea_pedido_id)
+    load()
+  }
 
   async function cambiarEstado() {
     const updates: Record<string, string | null> = { estado: nuevoEstado }
@@ -175,7 +247,9 @@ export default function PedidoDetalle() {
   const lineasMetros   = pedido.lineas_pedido.filter(l => l.tipo !== 'producto')
   const lineasProducto = pedido.lineas_pedido.filter(l => l.tipo === 'producto')
   const totalSolic   = pedido.lineas_pedido.reduce((s,l)=>s+l.metros_solicitados,0)
-  const totalEntreg  = pedido.lineas_pedido.reduce((s,l)=>s+(l.metros_entregados??0),0)
+  const metrosEntregadosPorLinea = (lineaId: string) =>
+    (entregas[lineaId] ?? []).reduce((s, e) => s + e.metros, 0) || (pedido.lineas_pedido.find(l=>l.id===lineaId)?.metros_entregados ?? 0)
+  const totalEntreg  = pedido.lineas_pedido.reduce((s,l)=>s+metrosEntregadosPorLinea(l.id),0)
   const esEntregado = pedido.estado === 'Entregado'
   // Entregado → metros reales; en curso → proyección con metros del pedido
   const totalValorMetros   = lineasMetros.reduce((s,l)=>s+((esEntregado && l.metros_entregados != null ? l.metros_entregados : l.metros_solicitados)*l.precio),0)
@@ -292,6 +366,14 @@ export default function PedidoDetalle() {
             }}>
               + Acabado externo
             </Link>
+            <button onClick={async () => {
+              if (!confirm(`¿Eliminar el pedido ${pedido.folio}? Esta acción no se puede deshacer.`)) return
+              await supabase.from('pedidos').delete().eq('id', id)
+              router.push('/pedidos')
+            }} style={{ fontSize:12, padding:'7px 14px', background:'none', border:'1px solid rgba(239,68,68,0.3)',
+              color:'var(--red)', borderRadius:6, cursor:'pointer' }}>
+              Eliminar
+            </button>
           </div>
         )}
       </div>
@@ -392,9 +474,9 @@ export default function PedidoDetalle() {
           </thead>
           <tbody>
             {pedido.lineas_pedido.map(l => {
-              const pendiente = l.metros_solicitados - (l.metros_entregados ?? 0)
+              const totalEntregL = metrosEntregadosPorLinea(l.id)
+              const pendiente = l.metros_solicitados - totalEntregL
               const isEditingSolic   = editingLinea === l.id && editingField === 'metros_solicitados'
-              const isEditingEntreg  = editingLinea === l.id && editingField === 'metros_entregados'
               const isEditingTela    = editingLinea === l.id && editingField === 'tela'
               const isEditingVariant = editingLinea === l.id && editingField === 'variante'
               const isEditingPrecio  = editingLinea === l.id && editingField === 'precio'
@@ -431,16 +513,20 @@ export default function PedidoDetalle() {
                     )}
                   </td>
                   <td style={{ padding:'4px 8px', textAlign:'right' }}>
-                    {isEditingEntreg ? (
-                      <InlineInput value={fieldInput} onChange={setFieldInput} onSave={() => saveField(l.id)} onCancel={cancelEdit} saving={savingLinea} />
-                    ) : (
-                      <EditableCell
-                        value={l.metros_entregados != null ? `${l.metros_entregados.toLocaleString()} m` : '—'}
-                        onClick={() => startEdit(l, 'metros_entregados')}
-                        color={l.metros_entregados != null ? (l.metros_entregados >= l.metros_solicitados ? 'var(--accent)' : 'var(--yellow)') : 'var(--text3)'}
-                        title="Click para registrar metros entregados"
-                      />
-                    )}
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:6 }}>
+                      <span style={{ fontSize:13, fontWeight: totalEntregL > 0 ? 600 : 400,
+                        color: totalEntregL >= l.metros_solicitados ? 'var(--accent)' : totalEntregL > 0 ? 'var(--yellow)' : 'var(--text3)' }}>
+                        {totalEntregL > 0 ? `${totalEntregL.toLocaleString()} m` : '—'}
+                      </span>
+                      {l.tipo !== 'producto' && (
+                        <button onClick={() => { setAddingEntrega(l); setEntregaMetros(''); setEntregaFecha(new Date().toISOString().split('T')[0]); setEntregaNotas('') }}
+                          title="Registrar entrega parcial"
+                          style={{ fontSize:11, padding:'2px 7px', borderRadius:99, border:'1px solid var(--border2)',
+                            background:'var(--surface2)', color:'var(--text2)', cursor:'pointer', whiteSpace:'nowrap' }}>
+                          +
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td style={{ padding:'10px 0', textAlign:'right', color: pendiente > 0 ? 'var(--text2)' : 'var(--accent)', fontSize:12 }}>
                     {pendiente > 0 ? `${pendiente.toLocaleString()} m` : '✓'}
@@ -463,8 +549,61 @@ export default function PedidoDetalle() {
             })}
           </tbody>
         </table>
+        {/* Historial de entregas por línea */}
+        {lineasMetros.some(l => (entregas[l.id] ?? []).length > 0 || (l.metros_entregados != null && l.metros_entregados > 0 && (entregas[l.id] ?? []).length === 0)) && (
+          <div style={{ marginTop:14, borderTop:'1px solid var(--border)', paddingTop:14, display:'flex', flexDirection:'column', gap:10 }}>
+            <div style={{ fontSize:12, fontWeight:600, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.05em' }}>Historial de entregas</div>
+            {lineasMetros.filter(l => (entregas[l.id] ?? []).length > 0 || (l.metros_entregados != null && l.metros_entregados > 0)).map(l => {
+              const tieneEntregas = (entregas[l.id] ?? []).length > 0
+              const esLegacy = !tieneEntregas && l.metros_entregados != null && l.metros_entregados > 0
+              return (
+                <div key={l.id}>
+                  <div style={{ fontSize:12, fontWeight:600, color:'var(--text2)', marginBottom:4 }}>
+                    {l.tela}{l.variante ? ` — ${l.variante}` : ''}
+                  </div>
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                    {/* Entradas nuevas (tabla entregas) */}
+                    {(entregas[l.id] ?? []).map(en => (
+                      <span key={en.id} style={{ display:'inline-flex', alignItems:'center', gap:5,
+                        background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:6, padding:'4px 10px', fontSize:12 }}>
+                        <span style={{ color:'var(--accent)', fontWeight:600 }}>{en.metros.toLocaleString()} m</span>
+                        <span style={{ color:'var(--text3)' }}>{format(new Date(en.fecha), 'dd MMM yy', { locale: es })}</span>
+                        {en.notas && <span style={{ color:'var(--text3)' }}>· {en.notas}</span>}
+                        <button onClick={() => { setEditingEntrega(en); setEntregaMetros(String(en.metros)); setEntregaFecha(en.fecha); setEntregaNotas(en.notas ?? '') }}
+                          title="Editar entrega"
+                          style={{ background:'none', border:'none', color:'var(--text3)', cursor:'pointer', fontSize:11, padding:0, lineHeight:1 }}
+                          onMouseEnter={e => (e.currentTarget.style.color='var(--text)')}
+                          onMouseLeave={e => (e.currentTarget.style.color='var(--text3)')}>✏</button>
+                        <button onClick={() => borrarEntrega(en)}
+                          style={{ background:'none', border:'none', color:'var(--text3)', cursor:'pointer', fontSize:13, padding:0, lineHeight:1 }}
+                          onMouseEnter={e => (e.currentTarget.style.color='var(--red)')}
+                          onMouseLeave={e => (e.currentTarget.style.color='var(--text3)')}>✕</button>
+                      </span>
+                    ))}
+                    {/* Entrada legacy (metros_entregados directo en la línea) */}
+                    {esLegacy && (
+                      editingLinea === l.id && editingField === 'metros_entregados' ? (
+                        <InlineInput value={fieldInput} onChange={setFieldInput} onSave={() => saveField(l.id)} onCancel={cancelEdit} saving={savingLinea} />
+                      ) : (
+                        <span style={{ display:'inline-flex', alignItems:'center', gap:5,
+                          background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:6, padding:'4px 10px', fontSize:12 }}>
+                          <span style={{ color:'var(--accent)', fontWeight:600 }}>{l.metros_entregados!.toLocaleString()} m</span>
+                          <button onClick={() => startEdit(l, 'metros_entregados')}
+                            title="Editar metros entregados"
+                            style={{ background:'none', border:'none', color:'var(--text3)', cursor:'pointer', fontSize:11, padding:0, lineHeight:1 }}
+                            onMouseEnter={e => (e.currentTarget.style.color='var(--text)')}
+                            onMouseLeave={e => (e.currentTarget.style.color='var(--text3)')}>✏</button>
+                        </span>
+                      )
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
         <p style={{ fontSize:11, color:'var(--text3)', marginTop:10, opacity:0.6 }}>
-          💡 Click en Metros para modificar · Click en Entregados para registrar entrega parcial · Enter guarda · Escape cancela
+          💡 Click en Metros para modificar · Botón + para registrar entrega parcial · Enter guarda · Escape cancela
         </p>
       </div>
 
@@ -588,6 +727,77 @@ export default function PedidoDetalle() {
         )}
       </div>
 
+      {/* Modal editar entrega */}
+      {editingEntrega && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:200, display:'flex', alignItems:'flex-end', justifyContent:'center' }}
+          onClick={() => setEditingEntrega(null)}>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border2)', borderRadius:'16px 16px 0 0',
+            padding:24, width:'100%', maxWidth:480, boxShadow:'0 -8px 40px rgba(0,0,0,0.5)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ width:40, height:4, background:'var(--border2)', borderRadius:99, margin:'0 auto 20px' }} />
+            <h2 style={{ fontSize:16, fontWeight:700, margin:'0 0 18px' }}>Editar entrega</h2>
+            <form onSubmit={guardarEdicionEntrega} style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              <div>
+                <label className="label">Metros entregados</label>
+                <input type="number" value={entregaMetros} onChange={e => setEntregaMetros(e.target.value)}
+                  className="input" autoFocus min="0" step="any" required />
+              </div>
+              <div>
+                <label className="label">Fecha</label>
+                <input type="date" value={entregaFecha} onChange={e => setEntregaFecha(e.target.value)} className="input" required />
+              </div>
+              <div>
+                <label className="label">Notas <span style={{ color:'var(--text3)', fontWeight:400 }}>(opcional)</span></label>
+                <input type="text" value={entregaNotas} onChange={e => setEntregaNotas(e.target.value)} className="input" placeholder="Ej. 1ª remesa..." />
+              </div>
+              <div style={{ display:'flex', gap:8, marginTop:4 }}>
+                <button type="submit" disabled={savingEntrega} className="btn-primary" style={{ flex:1, padding:'13px 0', fontSize:15 }}>
+                  {savingEntrega ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+                <button type="button" onClick={() => setEditingEntrega(null)} className="btn-ghost" style={{ padding:'13px 16px' }}>✕</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal nueva entrega */}
+      {addingEntrega && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:200, display:'flex', alignItems:'flex-end', justifyContent:'center' }}
+          onClick={() => setAddingEntrega(null)}>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border2)', borderRadius:'16px 16px 0 0',
+            padding:24, width:'100%', maxWidth:480, boxShadow:'0 -8px 40px rgba(0,0,0,0.5)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ width:40, height:4, background:'var(--border2)', borderRadius:99, margin:'0 auto 20px' }} />
+            <h2 style={{ fontSize:16, fontWeight:700, margin:'0 0 4px' }}>Registrar entrega</h2>
+            <p style={{ fontSize:13, color:'var(--text3)', margin:'0 0 18px' }}>
+              {addingEntrega.tela}{addingEntrega.variante ? ` — ${addingEntrega.variante}` : ''}
+              {' · '}{addingEntrega.metros_solicitados.toLocaleString()} m solicitados
+            </p>
+            <form onSubmit={agregarEntrega} style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              <div>
+                <label className="label">Metros entregados</label>
+                <input type="number" value={entregaMetros} onChange={e => setEntregaMetros(e.target.value)}
+                  className="input" autoFocus min="0" step="any" required placeholder="0" />
+              </div>
+              <div>
+                <label className="label">Fecha</label>
+                <input type="date" value={entregaFecha} onChange={e => setEntregaFecha(e.target.value)} className="input" required />
+              </div>
+              <div>
+                <label className="label">Notas <span style={{ color:'var(--text3)', fontWeight:400 }}>(opcional)</span></label>
+                <input type="text" value={entregaNotas} onChange={e => setEntregaNotas(e.target.value)} className="input" placeholder="Ej. 1ª remesa, color revisado..." />
+              </div>
+              <div style={{ display:'flex', gap:8, marginTop:4 }}>
+                <button type="submit" disabled={savingEntrega} className="btn-primary" style={{ flex:1, padding:'13px 0', fontSize:15 }}>
+                  {savingEntrega ? 'Guardando...' : 'Registrar entrega'}
+                </button>
+                <button type="button" onClick={() => setAddingEntrega(null)} className="btn-ghost" style={{ padding:'13px 16px' }}>✕</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

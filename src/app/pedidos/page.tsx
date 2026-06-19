@@ -241,7 +241,14 @@ function PedidosContent() {
                             {diasRestantes>=0 ? `${diasRestantes}d` : `${Math.abs(diasRestantes)}d venc.`}
                           </span>
                         )}
-                        <span style={{ fontWeight:600, color:'var(--text)' }}>{metros.toLocaleString()} m</span>
+                        <span style={{ fontWeight:600, color:'var(--text)' }}>
+                          {metros.toLocaleString()} m
+                          {entreg > 0 && metros - entreg > 0 && (
+                            <span style={{ fontWeight:400, color:'var(--text3)', fontSize:11, marginLeft:4 }}>
+                              ({(metros - entreg).toLocaleString()} pend.)
+                            </span>
+                          )}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -298,6 +305,11 @@ function PedidosContent() {
                       </td>
                       <td style={{ ...s, textAlign:'right' }}>
                         <div style={{ fontWeight:600, color:'var(--text)' }}>{metros.toLocaleString()} m</div>
+                        {entreg > 0 && metros - entreg > 0 && (
+                          <div style={{ fontSize:10, color:'var(--text3)', marginTop:1 }}>
+                            {(metros - entreg).toLocaleString()} m pend.
+                          </div>
+                        )}
                         {entreg > 0 && (
                           <div style={{ marginTop:4 }}>
                             <div style={{ height:3, background:'var(--surface2)', borderRadius:99, overflow:'hidden', width:72, marginLeft:'auto' }}>
