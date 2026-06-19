@@ -114,7 +114,7 @@ export default function NuevoPedidoPage() {
       }).select().single()
       if (pErr) throw new Error(pErr.message ?? pErr.code ?? JSON.stringify(pErr))
 
-      await supabase.from('lineas_pedido').insert(lineas.map(l => ({
+      const { error: lErr } = await supabase.from('lineas_pedido').insert(lineas.map(l => ({
         pedido_id: pedido.id,
         tipo: l.tipo,
         tela: l.tela,
@@ -126,6 +126,7 @@ export default function NuevoPedidoPage() {
         precio_unitario: l.tipo === 'producto' ? (parseFloat(l.precio_unitario) || null) : null,
         consumo_por_unidad: l.tipo === 'producto' ? (parseFloat(l.consumo_por_unidad) || null) : null,
       })))
+      if (lErr) throw new Error('Error en líneas: ' + (lErr.message ?? lErr.code ?? JSON.stringify(lErr)))
       router.push(`/pedidos/${pedido.id}`)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : (err as any)?.message ?? JSON.stringify(err)
