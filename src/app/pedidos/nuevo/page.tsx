@@ -130,7 +130,9 @@ export default function NuevoPedidoPage() {
       router.push(`/pedidos/${pedido.id}`)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : (err as any)?.message ?? JSON.stringify(err)
-      setError(msg || 'Error al guardar')
+      const full = msg || JSON.stringify(err) || 'Error desconocido'
+      alert('ERROR DETALLADO: ' + full)
+      setError(full)
       setSaving(false)
     }
   }
