@@ -85,7 +85,6 @@ export default function NuevoPedidoPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    alert('handleSubmit llamado')
     setError('')
     if (!form.cliente_id) { setError('Selecciona un cliente'); return }
     for (const l of lineas) {
@@ -148,7 +147,7 @@ export default function NuevoPedidoPage() {
         <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Nuevo pedido</h1>
       </div>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {/* Cabecera */}
         <div style={S.section}>
           <div style={S.title}>Datos del pedido</div>
