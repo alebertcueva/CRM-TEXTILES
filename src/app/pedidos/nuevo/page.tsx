@@ -85,6 +85,7 @@ export default function NuevoPedidoPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    alert('handleSubmit llamado')
     setError('')
     if (!form.cliente_id) { setError('Selecciona un cliente'); return }
     for (const l of lineas) {
