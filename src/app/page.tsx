@@ -59,6 +59,11 @@ export default function Dashboard() {
   const [pedidos, setPedidos]   = useState<Pedido[]>([])
   const [acabados, setAcabados] = useState<Acabado[]>([])
   const [loading, setLoading] = useState(true)
+  const [notasAbiertas, setNotasAbiertas] = useState(false)
+  const [notas, setNotas] = useState(() => {
+    if (typeof window === 'undefined') return ''
+    return localStorage.getItem('dashboard-notas') ?? ''
+  })
 
   useEffect(() => {
     Promise.all([
@@ -297,6 +302,44 @@ export default function Dashboard() {
             }} />
           ))}
         </div>
+      </div>
+
+      {/* ── NOTAS Y PENDIENTES ─────────────────────────────── */}
+      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, overflow:'hidden' }}>
+        <button onClick={() => setNotasAbiertas(v => !v)}
+          style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'12px 16px', background:'none', border:'none', cursor:'pointer', color:'var(--text2)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ fontSize:14 }}>📝</span>
+            <span style={{ fontSize:13, fontWeight:600 }}>Notas y pendientes</span>
+            {notas.trim() && !notasAbiertas && (
+              <span style={{ fontSize:11, color:'var(--accent)', background:'rgba(62,207,142,0.1)',
+                border:'1px solid rgba(62,207,142,0.3)', borderRadius:99, padding:'1px 8px' }}>
+                {notas.trim().split('\n').filter(Boolean).length} nota{notas.trim().split('\n').filter(Boolean).length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <span style={{ fontSize:12, color:'var(--text3)', transition:'transform 0.2s',
+            transform: notasAbiertas ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
+        </button>
+        {notasAbiertas && (
+          <div style={{ padding:'0 16px 16px' }}>
+            <textarea
+              value={notas}
+              onChange={e => { setNotas(e.target.value); localStorage.setItem('dashboard-notas', e.target.value) }}
+              placeholder="Escribe tus notas, pendientes o recordatorios aquí..."
+              style={{
+                width:'100%', minHeight:120, background:'var(--surface2)', border:'1px solid var(--border)',
+                borderRadius:6, color:'var(--text)', fontSize:13, padding:'10px 12px',
+                resize:'vertical', boxSizing:'border-box', lineHeight:1.6,
+                fontFamily:'inherit', outline:'none',
+              }}
+            />
+            <div style={{ fontSize:11, color:'var(--text3)', marginTop:6 }}>
+              Se guarda automáticamente en este dispositivo
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
