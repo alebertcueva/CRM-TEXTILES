@@ -57,7 +57,6 @@ function rColor(r: string) {
 export default function Dashboard() {
   const router = useRouter()
   const [pedidos, setPedidos]   = useState<Pedido[]>([])
-  const [acabados, setAcabados] = useState<Acabado[]>([])
   const [loading, setLoading] = useState(true)
   const [notasAbiertas, setNotasAbiertas] = useState(false)
   const [notas, setNotas] = useState(() => {
@@ -66,14 +65,11 @@ export default function Dashboard() {
   })
 
   useEffect(() => {
-    Promise.all([
-      supabase.from('pedidos').select('id,folio,fabrica,estado,fecha_compromiso,fecha_pedido,fecha_entregado,clientes(nombre),lineas_pedido(tela,variante,metros_solicitados,metros_entregados,precio),comentarios(texto,created_at)'),
-      supabase.from('acabados').select('id,proveedor,tipo_proceso,metros_enviados,estado,pedidos(lineas_pedido(tela))'),
-    ]).then(([{ data: p }, { data: a }]) => {
-      setPedidos((p as unknown as Pedido[]) ?? [])
-      setAcabados((a as unknown as Acabado[]) ?? [])
-      setLoading(false)
-    })
+    supabase.from('pedidos').select('id,folio,fabrica,estado,fecha_compromiso,fecha_pedido,fecha_entregado,clientes(nombre),lineas_pedido(tela,variante,metros_solicitados,metros_entregados,precio),comentarios(texto,created_at)')
+      .then(({ data: p }) => {
+        setPedidos((p as unknown as Pedido[]) ?? [])
+        setLoading(false)
+      })
   }, [])
 
   if (loading) return <div style={{ textAlign:'center', padding:80, color:'var(--text3)' }}>Cargando...</div>
@@ -130,18 +126,6 @@ export default function Dashboard() {
   const chartMensual = Object.entries(ventasMes)
     .sort(([a],[b]) => a.localeCompare(b))
     .map(([, { metros, label }]) => ({ mes: label, metros }))
-
-  // Stacked by tela per proveedor
-  const provTelaMap: Record<string, Record<string,number>> = {}
-  acabados.filter(a=>a.estado==='En Proceso').forEach(a => {
-    const tela = a.pedidos?.lineas_pedido?.[0]?.tela ?? 'Sin tela'
-    if (!provTelaMap[a.proveedor]) provTelaMap[a.proveedor] = {}
-    provTelaMap[a.proveedor][tela] = (provTelaMap[a.proveedor][tela]??0)+a.metros_enviados
-  })
-  const tiposProceso = [...new Set(
-    acabados.filter(a=>a.estado==='En Proceso').map(a => a.pedidos?.lineas_pedido?.[0]?.tela ?? 'Sin tela')
-  )]
-  const chartProv = Object.entries(provTelaMap).map(([proveedor, telas]) => ({ proveedor, ...telas }))
 
   const pedidosActivos = activos.sort((a,b)=>{
     const order:{[k:string]:number} = {atrasado:0,revisar:1,ok:2,entregado:3}
@@ -234,52 +218,23 @@ export default function Dashboard() {
       </div>
 
       {/* Charts row 2 */}
-      <div className="charts-2" style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:16 }}>
-        <ChartCard title="Ventas mensuales (metros)" subtitle="Click en un mes para ver sus pedidos">
-          <ResponsiveContainer width="100%" className="chart-h" height={210}>
-            <LineChart data={chartMensual} margin={{ left:-10 }}
-              onClick={(d:any) => d?.activePayload?.[0] && router.push(`/pedidos?mes=${encodeURIComponent(d.activePayload[0].payload.mes)}`)}
-              style={{ cursor:'pointer' }}
-            >
-              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis dataKey="mes" tick={{ fill:'var(--text3)', fontSize:10 }} />
-              <YAxis tick={{ fill:'var(--text3)', fontSize:10 }} tickFormatter={fmtK} />
-              <Tooltip {...TT} formatter={(v:any) => [`${Number(v).toLocaleString()} m`,'Metros']} />
-              <Line type="monotone" dataKey="metros" stroke="var(--accent)" strokeWidth={2}
-                dot={{ fill:'var(--accent)', r:4, cursor:'pointer' }}
-                activeDot={{ r:6, fill:'var(--accent)', stroke:'var(--bg)', strokeWidth:2 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Metros en acabado por proveedor" subtitle="Click para ver acabados · colores por tipo de proceso">
-          {/* Mini legend */}
-          <div style={{ display:'flex', flexWrap:'wrap', gap:'6px 12px', marginBottom:10 }}>
-            {tiposProceso.map((t,i) => (
-              <span key={t} style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, color:'var(--text3)' }}>
-                <span style={{ width:8, height:8, borderRadius:2, background:COLORS[i%COLORS.length], flexShrink:0 }} />
-                {t}
-              </span>
-            ))}
-          </div>
-          <ResponsiveContainer width="100%" className="chart-h" height={180}>
-            <BarChart data={chartProv} layout="vertical" margin={{ left:10 }}
-              onClick={(d:any) => d?.activePayload?.[0] && router.push(`/acabados?proveedor=${encodeURIComponent(d.activePayload[0].payload.proveedor)}`)}
-              style={{ cursor:'pointer' }}
-            >
-              <XAxis type="number" tick={{ fill:'var(--text3)', fontSize:10 }} tickFormatter={fmtK} />
-              <YAxis type="category" dataKey="proveedor" tick={{ fill:'var(--text3)', fontSize:10 }} width={80} />
-              <Tooltip {...TT} formatter={(v:any) => [`${Number(v).toLocaleString()} m`, '']} />
-              {tiposProceso.map((tipo, i) => (
-                <Bar key={tipo} dataKey={tipo} stackId="a" fill={COLORS[i%COLORS.length]}
-                  radius={i === tiposProceso.length-1 ? [0,3,3,0] : [0,0,0,0]}
-                />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
+      <ChartCard title="Ventas mensuales (metros)" subtitle="Click en un mes para ver sus pedidos">
+        <ResponsiveContainer width="100%" className="chart-h" height={210}>
+          <LineChart data={chartMensual} margin={{ left:-10 }}
+            onClick={(d:any) => d?.activePayload?.[0] && router.push(`/pedidos?mes=${encodeURIComponent(d.activePayload[0].payload.mes)}`)}
+            style={{ cursor:'pointer' }}
+          >
+            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+            <XAxis dataKey="mes" tick={{ fill:'var(--text3)', fontSize:10 }} />
+            <YAxis tick={{ fill:'var(--text3)', fontSize:10 }} tickFormatter={fmtK} />
+            <Tooltip {...TT} formatter={(v:any) => [`${Number(v).toLocaleString()} m`,'Metros']} />
+            <Line type="monotone" dataKey="metros" stroke="var(--accent)" strokeWidth={2}
+              dot={{ fill:'var(--accent)', r:4, cursor:'pointer' }}
+              activeDot={{ r:6, fill:'var(--accent)', stroke:'var(--bg)', strokeWidth:2 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartCard>
 
       {/* Pedidos activos */}
       <div>

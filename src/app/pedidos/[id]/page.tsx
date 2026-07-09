@@ -20,11 +20,6 @@ type LineaPedido = {
 type Entrega = {
   id: string; linea_pedido_id: string; metros: number; fecha: string; notas: string | null; created_at: string
 }
-type Acabado = {
-  id: string; folio_proceso: string; tipo_proceso: string; proveedor: string
-  metros_enviados: number; metros_recibidos: number | null; segundas: number | null
-  fecha_envio: string; fecha_retorno_estimada: string | null; estado: string; notas: string | null
-}
 type Comentario = {
   id: string; texto: string; created_at: string
 }
@@ -37,7 +32,6 @@ type Pedido = {
   notas: string | null
   clientes: { nombre: string } | null
   lineas_pedido: LineaPedido[]
-  acabados: Acabado[]
 }
 
 function badgeStyle(estado: string) {
@@ -88,7 +82,7 @@ export default function PedidoDetalle() {
 
   async function load() {
     const [{ data: p }, { data: c }, { data: h }] = await Promise.all([
-      supabase.from('pedidos').select('*, clientes(nombre), lineas_pedido(*), acabados(*)').eq('id', id).single(),
+      supabase.from('pedidos').select('*, clientes(nombre), lineas_pedido(*)').eq('id', id).single(),
       supabase.from('comentarios').select('*').eq('pedido_id', id).order('created_at', { ascending: true }),
       supabase.from('estado_historial').select('*').eq('pedido_id', id).order('created_at', { ascending: true }),
     ])
@@ -360,12 +354,6 @@ export default function PedidoDetalle() {
             <button onClick={() => { setNuevoEstado(pedido.estado); setEditingEstado(true) }} className="btn-ghost" style={{ fontSize:12 }}>
               Cambiar estado
             </button>
-            <Link href={`/acabados/nuevo?pedido=${id}`} style={{
-              fontSize:12, padding:'7px 14px', background:'var(--surface2)', border:'1px solid var(--border2)',
-              color:'var(--text2)', borderRadius:6, textDecoration:'none',
-            }}>
-              + Acabado externo
-            </Link>
             <button onClick={async () => {
               if (!confirm(`¿Eliminar el pedido ${pedido.folio}? Esta acción no se puede deshacer.`)) return
               await supabase.from('pedidos').delete().eq('id', id)
@@ -684,47 +672,6 @@ export default function PedidoDetalle() {
             </button>
           </div>
         </form>
-      </div>
-
-      {/* ── ACABADOS ─────────────────────────────────────── */}
-      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, padding:20 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
-          <h2 style={{ fontSize:14, fontWeight:600, margin:0, color:'var(--text2)', textTransform:'uppercase', letterSpacing:'0.5px' }}>Acabados externos</h2>
-          <Link href={`/acabados/nuevo?pedido=${id}`} className="btn-primary" style={{ fontSize:12, padding:'6px 12px' }}>
-            + Agregar proceso
-          </Link>
-        </div>
-        {pedido.acabados.length === 0 ? (
-          <p style={{ textAlign:'center', color:'var(--text3)', padding:'20px 0', fontSize:13 }}>Sin acabados registrados</p>
-        ) : (
-          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {pedido.acabados.map(a => (
-              <Link key={a.id} href={`/acabados/${a.id}`} style={{
-                display:'block', border:'1px solid var(--border)', borderRadius:6, padding:'10px 14px',
-                textDecoration:'none', transition:'border-color 0.15s',
-              }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor='var(--border2)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor='var(--border)')}
-              >
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                  <div>
-                    <span style={{ fontWeight:600, color:'var(--text)' }}>{a.folio_proceso}</span>
-                    <span style={{ color:'var(--text3)', fontSize:12, marginLeft:8 }}>{a.tipo_proceso} · {a.proveedor}</span>
-                  </div>
-                  <span style={{ fontSize:11, padding:'2px 8px', borderRadius:99, fontWeight:500,
-                    background: a.estado==='Recibido'?'#0e2a1a':a.estado==='Atrasado'?'#2a0e0e':'#0e1f3a',
-                    color: a.estado==='Recibido'?'#4ade80':a.estado==='Atrasado'?'#f87171':'#60a5fa',
-                  }}>{a.estado}</span>
-                </div>
-                <div style={{ fontSize:12, color:'var(--text3)', marginTop:4 }}>
-                  {a.metros_enviados.toLocaleString()} m enviados
-                  {a.metros_recibidos != null && ` · ${a.metros_recibidos.toLocaleString()} m recibidos`}
-                  {a.fecha_retorno_estimada && ` · Retorno: ${format(new Date(a.fecha_retorno_estimada),'dd MMM',{locale:es})}`}
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Modal editar entrega */}
