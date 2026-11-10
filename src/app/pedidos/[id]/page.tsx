@@ -71,6 +71,10 @@ export default function PedidoDetalle() {
   const [editingFecha, setEditingFecha]     = useState(false)
   const [fechaInput, setFechaInput]         = useState('')
   const [savingFecha, setSavingFecha]       = useState(false)
+  // Nueva línea
+  const [addingLinea, setAddingLinea]       = useState(false)
+  const [nuevaLinea, setNuevaLinea]         = useState({ tela: '', variante: '', metros: '', precio: '' })
+  const [savingLinea2, setSavingLinea2]     = useState(false)
   // Entregas parciales
   const [entregas, setEntregas]             = useState<Record<string, Entrega[]>>({})
   const [addingEntrega, setAddingEntrega]   = useState<LineaPedido | null>(null)
@@ -232,6 +236,24 @@ export default function PedidoDetalle() {
   }
 
   function cancelEdit() { setEditingLinea(null); setFieldInput('') }
+
+  async function agregarLinea(e: React.FormEvent) {
+    e.preventDefault()
+    if (!nuevaLinea.tela.trim() || !nuevaLinea.metros) return
+    setSavingLinea2(true)
+    await supabase.from('lineas_pedido').insert({
+      pedido_id: id,
+      tipo: 'metros',
+      tela: nuevaLinea.tela.trim(),
+      variante: nuevaLinea.variante.trim() || null,
+      metros_solicitados: parseFloat(nuevaLinea.metros) || 0,
+      precio: parseFloat(nuevaLinea.precio) || 0,
+    })
+    setNuevaLinea({ tela: '', variante: '', metros: '', precio: '' })
+    setAddingLinea(false)
+    setSavingLinea2(false)
+    load()
+  }
 
   if (loading) return <div style={{ textAlign:'center', padding:80, color:'var(--text3)' }}>Cargando...</div>
   if (!pedido)  return <div style={{ textAlign:'center', padding:80, color:'var(--text3)' }}>Pedido no encontrado</div>
@@ -593,7 +615,64 @@ export default function PedidoDetalle() {
         <p style={{ fontSize:11, color:'var(--text3)', marginTop:10, opacity:0.6 }}>
           💡 Click en Metros para modificar · Botón + para registrar entrega parcial · Enter guarda · Escape cancela
         </p>
+        <div style={{ marginTop:12 }}>
+          <button onClick={() => setAddingLinea(true)}
+            style={{ fontSize:12, padding:'6px 14px', background:'none', border:'1px dashed var(--border2)',
+              color:'var(--text3)', borderRadius:6, cursor:'pointer' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor='var(--accent)'; e.currentTarget.style.color='var(--accent)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border2)'; e.currentTarget.style.color='var(--text3)' }}>
+            + Agregar línea
+          </button>
+        </div>
       </div>
+
+      {/* Modal agregar línea */}
+      {addingLinea && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:200, display:'flex', alignItems:'flex-end', justifyContent:'center' }}
+          onClick={() => setAddingLinea(false)}>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border2)', borderRadius:'16px 16px 0 0',
+            padding:24, width:'100%', maxWidth:480, boxShadow:'0 -8px 40px rgba(0,0,0,0.5)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ width:40, height:4, background:'var(--border2)', borderRadius:99, margin:'0 auto 20px' }} />
+            <h2 style={{ fontSize:16, fontWeight:700, margin:'0 0 18px' }}>Agregar línea</h2>
+            <form onSubmit={agregarLinea} noValidate style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div>
+                  <label style={{ fontSize:12, color:'var(--text3)', display:'block', marginBottom:4 }}>Tela *</label>
+                  <input className="input" value={nuevaLinea.tela} onChange={e => setNuevaLinea(v => ({ ...v, tela: e.target.value }))}
+                    placeholder="Ej. B1, IJ, GC…" autoFocus />
+                </div>
+                <div>
+                  <label style={{ fontSize:12, color:'var(--text3)', display:'block', marginBottom:4 }}>Variante / Color</label>
+                  <input className="input" value={nuevaLinea.variante} onChange={e => setNuevaLinea(v => ({ ...v, variante: e.target.value }))}
+                    placeholder="Opcional" />
+                </div>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div>
+                  <label style={{ fontSize:12, color:'var(--text3)', display:'block', marginBottom:4 }}>Metros *</label>
+                  <input className="input" type="number" min="0" step="0.01" value={nuevaLinea.metros}
+                    onChange={e => setNuevaLinea(v => ({ ...v, metros: e.target.value }))} placeholder="0" />
+                </div>
+                <div>
+                  <label style={{ fontSize:12, color:'var(--text3)', display:'block', marginBottom:4 }}>Precio $/m</label>
+                  <input className="input" type="number" min="0" step="0.01" value={nuevaLinea.precio}
+                    onChange={e => setNuevaLinea(v => ({ ...v, precio: e.target.value }))} placeholder="0" />
+                </div>
+              </div>
+              <div style={{ display:'flex', gap:8, marginTop:4 }}>
+                <button type="submit" disabled={savingLinea2 || !nuevaLinea.tela.trim() || !nuevaLinea.metros}
+                  className="btn-primary" style={{ flex:1 }}>
+                  {savingLinea2 ? 'Guardando...' : 'Agregar'}
+                </button>
+                <button type="button" onClick={() => setAddingLinea(false)} className="btn-ghost" style={{ flex:1 }}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ── HISTORIAL DE ESTADOS ─────────────────────────── */}
       {historial.length > 0 && (
