@@ -11,6 +11,12 @@ type Fila = {
   veces: number
 }
 
+function normVariante(v: string | null): string | null {
+  if (!v) return null
+  if (/^est/i.test(v.trim())) return 'Estampado'
+  return v
+}
+
 export default function PreciosPage() {
   const [filas, setFilas]           = useState<Fila[]>([])
   const [loading, setLoading]       = useState(true)
@@ -23,12 +29,12 @@ export default function PreciosPage() {
       .select('tela,variante,precio,pedidos(clientes(nombre))')
       .gt('precio', 0)
       .then(({ data }) => {
-        // Agrupar por cliente+tela+variante, tomar el precio más reciente (último en el array)
+        // Agrupar por cliente+tela+variante normalizada, tomar el precio más reciente
         const map: Record<string, { precio: number; veces: number }> = {}
         ;(data ?? []).forEach((l: any) => {
-          const cliente = l.pedidos?.clientes?.nombre ?? '—'
-          const tela    = l.tela ?? ''
-          const variante = l.variante ?? ''
+          const cliente  = l.pedidos?.clientes?.nombre ?? '—'
+          const tela     = l.tela ?? ''
+          const variante = normVariante(l.variante) ?? ''
           const key = `${cliente}|||${tela}|||${variante}`
           if (!map[key]) map[key] = { precio: l.precio, veces: 0 }
           map[key].precio = l.precio  // el último gana = más reciente
@@ -112,7 +118,9 @@ export default function PreciosPage() {
                   {lineas.map((f, i) => (
                     <tr key={i} style={{ borderBottom: i < lineas.length - 1 ? '1px solid var(--border)' : 'none' }}>
                       <td style={{ padding: '8px 16px', fontWeight: 600, color: 'var(--text)' }}>{f.tela}</td>
-                      <td style={{ padding: '8px 8px', color: 'var(--text3)' }}>{f.variante ?? '—'}</td>
+                      <td style={{ padding: '8px 8px', color: f.variante === 'Estampado' ? 'var(--yellow)' : 'var(--text3)' }}>
+                        {f.variante ?? '—'}
+                      </td>
                       <td style={{ padding: '8px 16px', textAlign: 'right', fontWeight: 700, color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>
                         ${f.precio.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
