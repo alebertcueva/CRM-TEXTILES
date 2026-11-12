@@ -131,13 +131,19 @@ export default function PedidoDetalle() {
   useEffect(() => {
     load()
     supabase.from('lineas_pedido').select('tela,variante').then(({ data }) => {
-      const map: Record<string, Set<string>> = {}
+      const telaCount: Record<string, number> = {}
+      const varCount: Record<string, Record<string, number>> = {}
       ;(data ?? []).forEach((l: { tela: string; variante: string | null }) => {
         if (!l.tela) return
-        if (!map[l.tela]) map[l.tela] = new Set()
-        if (l.variante) map[l.tela].add(l.variante)
+        telaCount[l.tela] = (telaCount[l.tela] ?? 0) + 1
+        if (!varCount[l.tela]) varCount[l.tela] = {}
+        if (l.variante) varCount[l.tela][l.variante] = (varCount[l.tela][l.variante] ?? 0) + 1
       })
-      setTelaVarianteMap(Object.fromEntries(Object.entries(map).map(([t, vs]) => [t, [...vs]])))
+      const sorted = Object.keys(telaCount).sort((a, b) => telaCount[b] - telaCount[a])
+      setTelaVarianteMap(Object.fromEntries(sorted.map(t => [
+        t,
+        Object.keys(varCount[t] ?? {}).sort((a, b) => varCount[t][b] - varCount[t][a])
+      ])))
     })
   }, [id])
 
