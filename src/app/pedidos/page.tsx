@@ -312,7 +312,7 @@ function PedidosContent() {
                       </td>
                       <td style={{ ...s, textAlign:'right' }}>
                         <div style={{ fontWeight:600, color:'var(--text)' }}>{metros.toLocaleString()} m</div>
-                        {valor > 0 && <div style={{ fontSize:12, fontWeight:700, color:'var(--accent)', marginTop:1 }}>${Math.round(valor).toLocaleString()}</div>}
+                        {valor > 0 && <div style={{ fontWeight:600, color:'var(--text)', marginTop:1 }}>${Math.round(valor).toLocaleString()}</div>}
                         {entreg > 0 && metros - entreg > 0 && (
                           <div style={{ fontSize:10, color:'var(--text3)', marginTop:1 }}>
                             {(metros - entreg).toLocaleString()} m pend.
