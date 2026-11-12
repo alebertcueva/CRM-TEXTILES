@@ -9,7 +9,7 @@ import { differenceInDays, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  LineChart, Line, CartesianGrid, Cell,
+  ComposedChart, Line, CartesianGrid, Cell,
 } from 'recharts'
 
 type Pedido = {
@@ -115,17 +115,18 @@ export default function Dashboard() {
   const chartVentas = ventaTelaOrder.map(tela => ({ tela, ...telaVarianteVentas[tela] }))
 
   // Monthly chart — keyed by sortable YYYY-MM so we can sort chronologically
-  const ventasMes: Record<string,{metros:number;label:string}> = {}
+  const ventasMes: Record<string,{metros:number;valor:number;label:string}> = {}
   pedidos.forEach(p => {
     if (!p.fecha_pedido) return
     const key   = format(new Date(p.fecha_pedido), 'yyyy-MM')
     const label = format(new Date(p.fecha_pedido), 'MMM yy', { locale: es })
-    if (!ventasMes[key]) ventasMes[key] = { metros: 0, label }
+    if (!ventasMes[key]) ventasMes[key] = { metros: 0, valor: 0, label }
     ventasMes[key].metros += p.lineas_pedido.reduce((s,l)=>s+l.metros_solicitados,0)
+    ventasMes[key].valor  += p.lineas_pedido.reduce((s,l)=>s+(l.metros_solicitados*(l.precio??0)),0)
   })
   const chartMensual = Object.entries(ventasMes)
     .sort(([a],[b]) => a.localeCompare(b))
-    .map(([, { metros, label }]) => ({ mes: label, metros }))
+    .map(([, { metros, valor, label }]) => ({ mes: label, metros, valor }))
 
   const pedidosActivos = activos.sort((a,b)=>{
     const order:{[k:string]:number} = {atrasado:0,revisar:1,ok:2,entregado:3}
@@ -218,21 +219,26 @@ export default function Dashboard() {
       </div>
 
       {/* Charts row 2 */}
-      <ChartCard title="Ventas mensuales (metros)" subtitle="Click en un mes para ver sus pedidos">
+      <ChartCard title="Ventas mensuales" subtitle="Metros y valor — click en un mes para ver sus pedidos">
         <ResponsiveContainer width="100%" className="chart-h" height={210}>
-          <LineChart data={chartMensual} margin={{ left:-10 }}
+          <ComposedChart data={chartMensual} margin={{ left:-10, right:10 }}
             onClick={(d:any) => d?.activePayload?.[0] && router.push(`/pedidos?mes=${encodeURIComponent(d.activePayload[0].payload.mes)}`)}
             style={{ cursor:'pointer' }}
           >
             <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
             <XAxis dataKey="mes" tick={{ fill:'var(--text3)', fontSize:10 }} />
-            <YAxis tick={{ fill:'var(--text3)', fontSize:10 }} tickFormatter={fmtK} />
-            <Tooltip {...TT} formatter={(v:any) => [`${Number(v).toLocaleString()} m`,'Metros']} />
-            <Line type="monotone" dataKey="metros" stroke="var(--accent)" strokeWidth={2}
+            <YAxis yAxisId="m" tick={{ fill:'var(--text3)', fontSize:10 }} tickFormatter={fmtK} />
+            <YAxis yAxisId="v" orientation="right" tick={{ fill:'var(--text3)', fontSize:10 }} tickFormatter={(v:number) => v>=1000?`$${Math.round(v/1000)}K`:`$${Math.round(v)}`} />
+            <Tooltip {...TT} formatter={(v:any, name:string) => name==='metros' ? [`${Number(v).toLocaleString()} m`,'Metros'] : [`$${Number(v).toLocaleString()}`,'Valor']} />
+            <Line yAxisId="m" type="monotone" dataKey="metros" stroke="var(--accent)" strokeWidth={2}
               dot={{ fill:'var(--accent)', r:4, cursor:'pointer' }}
               activeDot={{ r:6, fill:'var(--accent)', stroke:'var(--bg)', strokeWidth:2 }}
             />
-          </LineChart>
+            <Line yAxisId="v" type="monotone" dataKey="valor" stroke="var(--blue)" strokeWidth={2} strokeDasharray="5 3"
+              dot={{ fill:'var(--blue)', r:3, cursor:'pointer' }}
+              activeDot={{ r:5, fill:'var(--blue)', stroke:'var(--bg)', strokeWidth:2 }}
+            />
+          </ComposedChart>
         </ResponsiveContainer>
       </ChartCard>
 
