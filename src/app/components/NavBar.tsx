@@ -7,6 +7,7 @@ const LINKS = [
   { href: '/',         label: 'Dashboard', short: 'Inicio'   },
   { href: '/pedidos',  label: 'Pedidos',   short: 'Pedidos'  },
   { href: '/clientes', label: 'Clientes',  short: 'Clientes' },
+  { href: '/precios',  label: 'Precios',   short: 'Precios'  },
   { href: '/cobros',   label: 'Cobros 💰', short: 'Cobros'   },
 ]
 
