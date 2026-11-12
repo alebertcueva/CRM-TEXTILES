@@ -9,7 +9,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 
 type Cobro = { id: string; cliente_id: string | null; monto: number; fecha: string; notas: string | null }
 type Linea = { metros_solicitados: number; metros_entregados: number | null; precio: number; tipo: string; unidades: number | null; precio_unitario: number | null }
-type Pedido = { id: string; estado: string; fecha_entregado: string | null; cliente_id: string; lineas_pedido: Linea[] }
+type Pedido = { id: string; folio: string; estado: string; fecha_entregado: string | null; cliente_id: string; lineas_pedido: Linea[] }
 type Cliente = { id: string; nombre: string; dias_credito: number | null }
 
 function valorPedido(p: Pedido) {
@@ -46,7 +46,7 @@ export default function CobrosPage() {
     const [{ data: cData }, { data: pData }, { data: coData }] = await Promise.all([
       supabase.from('clientes').select('id,nombre,dias_credito').order('nombre'),
       supabase.from('pedidos')
-        .select('id,estado,fecha_entregado,cliente_id,lineas_pedido(metros_solicitados,metros_entregados,precio,tipo,unidades,precio_unitario)'),
+        .select('id,folio,estado,fecha_entregado,cliente_id,lineas_pedido(metros_solicitados,metros_entregados,precio,tipo,unidades,precio_unitario)'),
       supabase.from('cobros').select('id,cliente_id,monto,fecha,notas').order('fecha', { ascending: false }),
     ])
     setClientes((cData ?? []) as Cliente[])
@@ -260,29 +260,58 @@ export default function CobrosPage() {
                   </div>
                 )}
 
-                {/* Historial de pagos */}
-                {abierto && (
-                  <div style={{ padding:'10px 16px', borderTop:'1px solid var(--border)' }}>
-                    {cobrosCli.length === 0 ? (
-                      <span style={{ fontSize:13, color:'var(--text3)' }}>Sin pagos registrados</span>
-                    ) : (
-                      <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                        {cobrosCli.map(cb => (
-                          <span key={cb.id} style={{ display:'inline-flex', alignItems:'center', gap:5, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:6, padding:'4px 10px', fontSize:12 }}>
-                            <span style={{ color:'var(--accent)', fontWeight:700 }}>${cb.monto.toLocaleString()}</span>
-                            <span style={{ color:'var(--text3)' }}>{format(new Date(cb.fecha), 'dd MMM yy', { locale: es })}</span>
-                            {cb.notas && <span style={{ color:'var(--text3)' }}>· {cb.notas}</span>}
-                            <button onClick={() => borrarCobro(cb.id)}
-                              style={{ background:'none', border:'none', color:'var(--text3)', cursor:'pointer', fontSize:13, padding:0, lineHeight:1 }}
-                              onMouseEnter={e=>(e.currentTarget.style.color='var(--red)')}
-                              onMouseLeave={e=>(e.currentTarget.style.color='var(--text3)')}
-                            >✕</button>
-                          </span>
-                        ))}
+                {/* Detalle expandido: pedidos + pagos */}
+                {abierto && (() => {
+                  const pedidosCli = pedidos
+                    .filter(p => p.cliente_id === c.id && (p.estado === 'Entregado' || p.fecha_entregado))
+                    .sort((a, b) => (b.fecha_entregado ?? '').localeCompare(a.fecha_entregado ?? ''))
+                  return (
+                    <div style={{ borderTop:'1px solid var(--border)' }}>
+                      {/* Pedidos */}
+                      {pedidosCli.length > 0 && (
+                        <div style={{ padding:'10px 16px 6px' }}>
+                          <div style={{ fontSize:11, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:6 }}>Pedidos facturados</div>
+                          <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                            {pedidosCli.map(p => {
+                              const val = valorPedido(p)
+                              return (
+                                <div key={p.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:13, padding:'4px 0', borderBottom:'1px solid var(--border)' }}>
+                                  <span style={{ fontWeight:600, color:'var(--text)' }}>{p.folio}</span>
+                                  <span style={{ color:'var(--text3)', fontSize:12 }}>
+                                    {p.fecha_entregado ? format(new Date(p.fecha_entregado), 'dd MMM yy', { locale: es }) : '—'}
+                                  </span>
+                                  <span style={{ fontWeight:700, color:'var(--text)' }}>${Math.round(iva(val)).toLocaleString()} <span style={{ fontWeight:400, fontSize:11, color:'var(--text3)' }}>c/IVA</span></span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {/* Pagos registrados */}
+                      <div style={{ padding:'8px 16px 12px' }}>
+                        <div style={{ fontSize:11, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:6 }}>Pagos registrados</div>
+                        {cobrosCli.length === 0 ? (
+                          <span style={{ fontSize:13, color:'var(--text3)' }}>Sin pagos registrados</span>
+                        ) : (
+                          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                            {cobrosCli.map(cb => (
+                              <span key={cb.id} style={{ display:'inline-flex', alignItems:'center', gap:5, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:6, padding:'4px 10px', fontSize:12 }}>
+                                <span style={{ color:'var(--accent)', fontWeight:700 }}>${cb.monto.toLocaleString()}</span>
+                                <span style={{ color:'var(--text3)' }}>{format(new Date(cb.fecha), 'dd MMM yy', { locale: es })}</span>
+                                {cb.notas && <span style={{ color:'var(--text3)' }}>· {cb.notas}</span>}
+                                <button onClick={() => borrarCobro(cb.id)}
+                                  style={{ background:'none', border:'none', color:'var(--text3)', cursor:'pointer', fontSize:13, padding:0, lineHeight:1 }}
+                                  onMouseEnter={e=>(e.currentTarget.style.color='var(--red)')}
+                                  onMouseLeave={e=>(e.currentTarget.style.color='var(--text3)')}
+                                >✕</button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )
+                })()}
               </div>
             )
           })}

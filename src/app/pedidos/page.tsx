@@ -220,9 +220,14 @@ function PedidosContent() {
                       <span style={{ fontSize:11, padding:'2px 8px', borderRadius:99, fontWeight:500, flexShrink:0, ...badge }}>{p.estado}</span>
                     </div>
                     <div style={{ color:'var(--text2)', fontSize:13, marginBottom:4 }}>{p.clientes?.nombre ?? '—'}</div>
-                    <div style={{ color:'var(--text3)', fontSize:12, marginBottom:8, overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>
+                    <div style={{ color:'var(--text3)', fontSize:12, overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>
                       {p.lineas_pedido.map(l=>`${l.tela}${l.variante?` (${l.variante})`:''}`).join(' · ')}
                     </div>
+                    {valor > 0 && (
+                      <div style={{ fontSize:13, fontWeight:700, color:'var(--accent)', margin:'4px 0 6px' }}>
+                        ${Math.round(valor).toLocaleString()}
+                      </div>
+                    )}
                     {entreg > 0 && (
                       <div style={{ marginBottom:8 }}>
                         <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'var(--text3)', marginBottom:4 }}>
@@ -242,17 +247,14 @@ function PedidosContent() {
                             {diasRestantes>=0 ? `${diasRestantes}d` : `${Math.abs(diasRestantes)}d venc.`}
                           </span>
                         )}
-                        <div style={{ textAlign:'right' }}>
-                          <div style={{ fontWeight:600, color:'var(--text)', fontSize:12 }}>
-                            {metros.toLocaleString()} m
-                            {entreg > 0 && metros - entreg > 0 && (
-                              <span style={{ fontWeight:400, color:'var(--text3)', fontSize:11, marginLeft:4 }}>
-                                ({(metros - entreg).toLocaleString()} pend.)
-                              </span>
-                            )}
-                          </div>
-                          {valor > 0 && <div style={{ fontSize:12, fontWeight:700, color:'var(--accent)' }}>${Math.round(valor).toLocaleString()}</div>}
-                        </div>
+                        <span style={{ fontWeight:600, color:'var(--text)', fontSize:12 }}>
+                          {metros.toLocaleString()} m
+                          {entreg > 0 && metros - entreg > 0 && (
+                            <span style={{ fontWeight:400, color:'var(--text3)', fontSize:11, marginLeft:4 }}>
+                              ({(metros - entreg).toLocaleString()} pend.)
+                            </span>
+                          )}
+                        </span>
                       </div>
                     </div>
                   </div>

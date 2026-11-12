@@ -234,7 +234,7 @@ export default function Dashboard() {
               dot={{ fill:'var(--accent)', r:4, cursor:'pointer' }}
               activeDot={{ r:6, fill:'var(--accent)', stroke:'var(--bg)', strokeWidth:2 }}
             />
-            <Line yAxisId="v" type="monotone" dataKey="valor" stroke="var(--blue)" strokeWidth={2} strokeDasharray="5 3"
+            <Line yAxisId="v" type="monotone" dataKey="valor" stroke="#60a5fa" strokeWidth={2} strokeDasharray="5 3"
               dot={{ fill:'var(--blue)', r:3, cursor:'pointer' }}
               activeDot={{ r:5, fill:'var(--blue)', stroke:'var(--bg)', strokeWidth:2 }}
             />
