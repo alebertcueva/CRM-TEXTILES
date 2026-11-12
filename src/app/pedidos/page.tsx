@@ -224,7 +224,7 @@ function PedidosContent() {
                       {p.lineas_pedido.map(l=>`${l.tela}${l.variante?` (${l.variante})`:''}`).join(' · ')}
                     </div>
                     {valor > 0 && (
-                      <div style={{ fontSize:13, fontWeight:700, color:'var(--accent)', margin:'4px 0 6px' }}>
+                      <div style={{ fontSize:12, fontWeight:600, color:'var(--text)', margin:'4px 0 6px' }}>
                         ${Math.round(valor).toLocaleString()}
                       </div>
                     )}

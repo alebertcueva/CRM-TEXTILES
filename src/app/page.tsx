@@ -378,7 +378,7 @@ function PedidoCard({ p, onCommentSaved }: { p: Pedido; onCommentSaved: () => vo
               {metros.toLocaleString()} m
               {diasRestantes!==null && ` · ${diasRestantes>=0?`${diasRestantes}d`:`${Math.abs(diasRestantes)}d venc.`}`}
             </span>
-            {valor > 0 && <span style={{ fontSize:12, fontWeight:700, color:'var(--accent)' }}>${Math.round(valor).toLocaleString()}</span>}
+            {valor > 0 && <span style={{ fontSize:11, color:'var(--text3)' }}>${Math.round(valor).toLocaleString()}</span>}
           </div>
         </div>
       </div>
