@@ -229,7 +229,7 @@ export default function Dashboard() {
             <XAxis dataKey="mes" tick={{ fill:'var(--text3)', fontSize:10 }} />
             <YAxis yAxisId="m" tick={{ fill:'var(--text3)', fontSize:10 }} tickFormatter={fmtK} />
             <YAxis yAxisId="v" orientation="right" tick={{ fill:'var(--text3)', fontSize:10 }} tickFormatter={(v:number) => v>=1000?`$${Math.round(v/1000)}K`:`$${Math.round(v)}`} />
-            <Tooltip {...TT} formatter={(v:any, name:string) => name==='metros' ? [`${Number(v).toLocaleString()} m`,'Metros'] : [`$${Number(v).toLocaleString()}`,'Valor']} />
+            <Tooltip {...TT} formatter={(v:any, name:any) => name==='metros' ? [`${Number(v).toLocaleString()} m`,'Metros'] : [`$${Number(v).toLocaleString()}`,'Valor']} />
             <Line yAxisId="m" type="monotone" dataKey="metros" stroke="var(--accent)" strokeWidth={2}
               dot={{ fill:'var(--accent)', r:4, cursor:'pointer' }}
               activeDot={{ r:6, fill:'var(--accent)', stroke:'var(--bg)', strokeWidth:2 }}
