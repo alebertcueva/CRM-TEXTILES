@@ -1,4 +1,4 @@
-export const FABRICAS = ['Asturcon', 'Cobitel', 'Fábrica'] as const
+export const FABRICAS = ['Asturcon', 'Cobitel', 'Fábrica', 'La Perla'] as const
 export type Fabrica = typeof FABRICAS[number]
 
 export const ESTADOS_PEDIDO = [
