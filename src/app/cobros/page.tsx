@@ -97,13 +97,13 @@ export default function CobrosPage() {
 
   const totalFacturado = Object.values(facturadoMap).reduce((s, v) => s + v, 0)
   const totalCobrado   = cobros.reduce((s, c) => s + c.monto, 0)
-  const totalDeuda     = totalFacturado - totalCobrado
+  const totalDeuda     = iva(totalFacturado) - totalCobrado
 
   const clientesFiltrados = clientes.filter(c => {
     const facturado = facturadoMap[c.id] ?? 0
     if (facturado === 0) return false
     const cobradoC  = cobradoMap[c.id] ?? 0
-    const deuda     = facturado - cobradoC
+    const deuda     = iva(facturado) - cobradoC
     if (filtro === 'pendiente') return deuda > 1
     if (filtro === 'cobrado')   return deuda <= 1
     return true
@@ -172,13 +172,13 @@ export default function CobrosPage() {
       {/* KPIs */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:20 }}>
         {[
-          { label:'Facturado', raw: totalFacturado, color:'var(--text)'   },
-          { label:'Cobrado',   raw: totalCobrado,   color:'var(--accent)' },
-          { label:'Debe',      raw: totalDeuda,     color: totalDeuda > 0 ? 'var(--red)' : 'var(--accent)' },
-        ].map(({ label, raw, color }) => (
+          { label:'Facturado', val: iva(totalFacturado), sub: `s/IVA ${compact(totalFacturado)}`, color:'var(--text)'   },
+          { label:'Cobrado',   val: totalCobrado,        sub: '',                                  color:'var(--accent)' },
+          { label:'Debe',      val: totalDeuda,          sub: '',                                  color: totalDeuda > 0 ? 'var(--red)' : 'var(--accent)' },
+        ].map(({ label, val, sub, color }) => (
           <div key={label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, padding:'14px 12px' }}>
-            <div style={{ fontSize:18, fontWeight:700, color }}>{compact(iva(raw))}</div>
-            <div style={{ fontSize:10, color:'var(--text3)', marginTop:1 }}>s/IVA {compact(raw)}</div>
+            <div style={{ fontSize:18, fontWeight:700, color }}>{compact(val)}</div>
+            {sub && <div style={{ fontSize:10, color:'var(--text3)', marginTop:1 }}>{sub}</div>}
             <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{label}</div>
           </div>
         ))}
@@ -210,8 +210,8 @@ export default function CobrosPage() {
           {clientesFiltrados.map(c => {
             const facturado = facturadoMap[c.id] ?? 0
             const cobradoC  = cobradoMap[c.id] ?? 0
-            const deuda     = facturado - cobradoC
-            const pct       = facturado > 0 ? Math.min(cobradoC / facturado * 100, 100) : 0
+            const deuda     = iva(facturado) - cobradoC
+            const pct       = facturado > 0 ? Math.min(cobradoC / iva(facturado) * 100, 100) : 0
             const cobrosCli = cobros.filter(cb => cb.cliente_id === c.id)
             const abierto   = expandido[c.id]
 
@@ -237,7 +237,7 @@ export default function CobrosPage() {
                     <div style={{ textAlign:'right' }}>
                       {deuda > 1 ? (
                         <div style={{ fontSize:15, fontWeight:700, color:'var(--red)' }}>
-                          Debe ${Math.round(iva(deuda)).toLocaleString()}
+                          Debe ${Math.round(deuda).toLocaleString()}
                         </div>
                       ) : (
                         <div style={{ fontSize:13, fontWeight:700, color:'var(--accent)' }}>✓ Al corriente</div>
@@ -331,8 +331,8 @@ export default function CobrosPage() {
               {(() => {
                 const facturado = facturadoMap[addingTo.id] ?? 0
                 const cobradoC  = cobradoMap[addingTo.id] ?? 0
-                const deuda     = facturado - cobradoC
-                return deuda > 0 ? ` · Saldo $${Math.round(iva(deuda)).toLocaleString()} c/IVA` : ''
+                const deuda     = iva(facturado) - cobradoC
+                return deuda > 0 ? ` · Saldo $${Math.round(deuda).toLocaleString()}` : ''
               })()}
             </p>
             <form onSubmit={registrarCobro} style={{ display:'flex', flexDirection:'column', gap:12 }}>
