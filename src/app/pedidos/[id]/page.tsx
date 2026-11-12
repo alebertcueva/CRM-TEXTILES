@@ -75,6 +75,7 @@ export default function PedidoDetalle() {
   const [addingLinea, setAddingLinea]       = useState(false)
   const [nuevaLinea, setNuevaLinea]         = useState({ tela: '', variante: '', metros: '', precio: '' })
   const [savingLinea2, setSavingLinea2]     = useState(false)
+  const [telaVarianteMap, setTelaVarianteMap] = useState<Record<string, string[]>>({})
   // Entregas parciales
   const [entregas, setEntregas]             = useState<Record<string, Entrega[]>>({})
   const [addingEntrega, setAddingEntrega]   = useState<LineaPedido | null>(null)
@@ -127,7 +128,18 @@ export default function PedidoDetalle() {
     setComentarios(prev => prev.filter(c => c.id !== comentarioId))
   }
 
-  useEffect(() => { load() }, [id])
+  useEffect(() => {
+    load()
+    supabase.from('lineas_pedido').select('tela,variante').then(({ data }) => {
+      const map: Record<string, Set<string>> = {}
+      ;(data ?? []).forEach((l: { tela: string; variante: string | null }) => {
+        if (!l.tela) return
+        if (!map[l.tela]) map[l.tela] = new Set()
+        if (l.variante) map[l.tela].add(l.variante)
+      })
+      setTelaVarianteMap(Object.fromEntries(Object.entries(map).map(([t, vs]) => [t, [...vs]])))
+    })
+  }, [id])
 
   async function agregarEntrega(e: React.FormEvent) {
     e.preventDefault()
@@ -639,13 +651,15 @@ export default function PedidoDetalle() {
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <div>
                   <label style={{ fontSize:12, color:'var(--text3)', display:'block', marginBottom:4 }}>Tela *</label>
-                  <input className="input" value={nuevaLinea.tela} onChange={e => setNuevaLinea(v => ({ ...v, tela: e.target.value }))}
-                    placeholder="Ej. B1, IJ, GC…" autoFocus />
+                  <input className="input" value={nuevaLinea.tela} onChange={e => setNuevaLinea(v => ({ ...v, tela: e.target.value, variante: '' }))}
+                    placeholder="Ej. B1, IJ, GC…" autoFocus list="nl-telas" autoComplete="off" />
+                  <datalist id="nl-telas">{Object.keys(telaVarianteMap).sort().map(t => <option key={t} value={t} />)}</datalist>
                 </div>
                 <div>
                   <label style={{ fontSize:12, color:'var(--text3)', display:'block', marginBottom:4 }}>Variante / Color</label>
                   <input className="input" value={nuevaLinea.variante} onChange={e => setNuevaLinea(v => ({ ...v, variante: e.target.value }))}
-                    placeholder="Opcional" />
+                    placeholder="Opcional" list="nl-vars" autoComplete="off" />
+                  <datalist id="nl-vars">{(telaVarianteMap[nuevaLinea.tela] ?? []).sort().map(v => <option key={v} value={v} />)}</datalist>
                 </div>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>

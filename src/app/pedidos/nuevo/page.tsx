@@ -41,6 +41,7 @@ export default function NuevoPedidoPage() {
   const [nuevoClienteNombre, setNuevoClienteNombre] = useState('')
   const [creandoCliente, setCreandoCliente] = useState(false)
   const [savingCliente, setSavingCliente] = useState(false)
+  const [telaVarianteMap, setTelaVarianteMap] = useState<Record<string, string[]>>({})
   const [form, setForm] = useState({
     folioMode: 'auto' as 'auto' | 'manual',
     folioManual: '',
@@ -52,6 +53,15 @@ export default function NuevoPedidoPage() {
 
   useEffect(() => {
     supabase.from('clientes').select('id,nombre').order('nombre').then(({ data }) => setClientes(data ?? []))
+    supabase.from('lineas_pedido').select('tela,variante').then(({ data }) => {
+      const map: Record<string, Set<string>> = {}
+      ;(data ?? []).forEach((l: { tela: string; variante: string | null }) => {
+        if (!l.tela) return
+        if (!map[l.tela]) map[l.tela] = new Set()
+        if (l.variante) map[l.tela].add(l.variante)
+      })
+      setTelaVarianteMap(Object.fromEntries(Object.entries(map).map(([t, vs]) => [t, [...vs]])))
+    })
   }, [])
 
   async function crearCliente(e: React.MouseEvent | React.KeyboardEvent) {
@@ -255,6 +265,7 @@ export default function NuevoPedidoPage() {
                 onToggle={() => toggleTipo(i)}
                 onRemove={lineas.length > 1 ? () => setLineas(prev => prev.filter((_, idx) => idx !== i)) : undefined}
                 metrosCalculados={l.tipo === 'producto' ? metrosProducto(l) : null}
+                telaVarianteMap={telaVarianteMap}
               />
             ))}
           </div>
@@ -279,14 +290,19 @@ export default function NuevoPedidoPage() {
   )
 }
 
-function LineaForm({ linea, index, onChange, onToggle, onRemove, metrosCalculados }: {
+function LineaForm({ linea, index, onChange, onToggle, onRemove, metrosCalculados, telaVarianteMap }: {
   linea: Linea; index: number
   onChange: (f: keyof Linea, v: string) => void
   onToggle: () => void
   onRemove?: () => void
   metrosCalculados: number | null
+  telaVarianteMap: Record<string, string[]>
 }) {
   const isProducto = linea.tipo === 'producto'
+  const telasSugeridas = Object.keys(telaVarianteMap).sort()
+  const variantesSugeridas = (telaVarianteMap[linea.tela] ?? []).sort()
+  const telaId = `telas-${index}`
+  const varId = `vars-${index}`
   return (
     <div style={{ background: 'var(--surface2)', border: `1px solid ${isProducto ? '#2a1f00' : 'var(--border)'}`, borderRadius: 8, padding: 14 }}>
       {/* Header de la línea */}
@@ -331,12 +347,14 @@ function LineaForm({ linea, index, onChange, onToggle, onRemove, metrosCalculado
             <div>
               <label className="label">Tela a utilizar</label>
               <input type="text" value={linea.tela} onChange={e => onChange('tela', e.target.value)}
-                placeholder="Ej. B1" className="input" required />
+                placeholder="Ej. B1" className="input" required list={telaId} autoComplete="off" />
+              <datalist id={telaId}>{telasSugeridas.map(t => <option key={t} value={t} />)}</datalist>
             </div>
             <div>
               <label className="label">Variante</label>
               <input type="text" value={linea.variante} onChange={e => onChange('variante', e.target.value)}
-                placeholder="Color..." className="input" />
+                placeholder="Color..." className="input" list={varId} autoComplete="off" />
+              <datalist id={varId}>{variantesSugeridas.map(v => <option key={v} value={v} />)}</datalist>
             </div>
             <div>
               <label className="label">Consumo m/u</label>
@@ -368,11 +386,13 @@ function LineaForm({ linea, index, onChange, onToggle, onRemove, metrosCalculado
         <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr 1.5fr 1.5fr', gap: 10 }}>
           <div>
             <label className="label">Tela</label>
-            <input type="text" value={linea.tela} onChange={e => onChange('tela', e.target.value)} placeholder="Ej. Molleton" className="input" required />
+            <input type="text" value={linea.tela} onChange={e => onChange('tela', e.target.value)} placeholder="Ej. Molleton" className="input" required list={telaId} autoComplete="off" />
+            <datalist id={telaId}>{telasSugeridas.map(t => <option key={t} value={t} />)}</datalist>
           </div>
           <div>
             <label className="label">Variante / Color</label>
-            <input type="text" value={linea.variante} onChange={e => onChange('variante', e.target.value)} placeholder="Ej. Azul" className="input" />
+            <input type="text" value={linea.variante} onChange={e => onChange('variante', e.target.value)} placeholder="Ej. Azul" className="input" list={varId} autoComplete="off" />
+            <datalist id={varId}>{variantesSugeridas.map(v => <option key={v} value={v} />)}</datalist>
           </div>
           <div>
             <label className="label">Metros</label>
