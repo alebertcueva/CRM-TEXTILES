@@ -377,6 +377,15 @@ export default function PedidoDetalle() {
                 ⏱ {diasEntrega} días de entrega
               </div>
             )}
+            {totalValor > 0 && (
+              <div style={{ marginTop:10, padding:'8px 12px', background:'rgba(62,207,142,0.08)', border:'1px solid rgba(62,207,142,0.25)', borderRadius:8, display:'inline-flex', alignItems:'baseline', gap:6 }}>
+                <span style={{ fontSize:20, fontWeight:800, color:'var(--accent)' }}>${Math.round(totalValor).toLocaleString()}</span>
+                <span style={{ fontSize:12, color:'var(--text3)' }}>
+                  {esEntregado ? 'valor real' : 'proyección'}
+                  {valorDifiere && ` · orig. $${Math.round(totalValorEstimado).toLocaleString()}`}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -474,12 +483,12 @@ export default function PedidoDetalle() {
               </span>
             )}
             {totalValorMetros > 0 && (
-              <span>
-                ${totalValorMetros.toLocaleString()}
+              <span style={{ fontWeight:700, color:'var(--accent)', fontSize:14 }}>
+                ${Math.round(totalValorMetros).toLocaleString()}
                 {valorDifiere && (
-                  <span title={`Pedido original: $${totalValorEstimado.toLocaleString()}`}
-                    style={{ marginLeft:6, fontSize:11, color:'var(--yellow)' }}>
-                    (pedido: ${totalValorEstimado.toLocaleString()})
+                  <span title={`Pedido original: $${Math.round(totalValorEstimado).toLocaleString()}`}
+                    style={{ marginLeft:6, fontSize:11, color:'var(--yellow)', fontWeight:400 }}>
+                    (orig. ${Math.round(totalValorEstimado).toLocaleString()})
                   </span>
                 )}
               </span>
