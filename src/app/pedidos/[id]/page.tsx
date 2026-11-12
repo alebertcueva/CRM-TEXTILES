@@ -76,6 +76,7 @@ export default function PedidoDetalle() {
   const [nuevaLinea, setNuevaLinea]         = useState({ tela: '', variante: '', metros: '', precio: '' })
   const [savingLinea2, setSavingLinea2]     = useState(false)
   const [telaVarianteMap, setTelaVarianteMap] = useState<Record<string, string[]>>({})
+  const [preciosClienteMap, setPreciosClienteMap] = useState<Record<string, Record<string, number>>>({})
   // Entregas parciales
   const [entregas, setEntregas]             = useState<Record<string, Entrega[]>>({})
   const [addingEntrega, setAddingEntrega]   = useState<LineaPedido | null>(null)
@@ -130,20 +131,25 @@ export default function PedidoDetalle() {
 
   useEffect(() => {
     load()
-    supabase.from('lineas_pedido').select('tela,variante').then(({ data }) => {
+    supabase.from('lineas_pedido').select('tela,variante,precio,pedidos(cliente_id)').gt('precio', 0).then(({ data }) => {
       const telaCount: Record<string, number> = {}
       const varCount: Record<string, Record<string, number>> = {}
-      ;(data ?? []).forEach((l: { tela: string; variante: string | null }) => {
+      const pm: Record<string, Record<string, number>> = {}
+      ;(data ?? []).forEach((l: any) => {
         if (!l.tela) return
         telaCount[l.tela] = (telaCount[l.tela] ?? 0) + 1
         if (!varCount[l.tela]) varCount[l.tela] = {}
         if (l.variante) varCount[l.tela][l.variante] = (varCount[l.tela][l.variante] ?? 0) + 1
+        // mapa tela+varianteNorm -> precio para este pedido (se filtrará por cliente al usar)
+        const vNorm = l.variante && /^est/i.test(l.variante.trim()) ? 'Estampado' : (l.variante ?? '')
+        pm[`${l.tela}|||${vNorm}`] = l.precio
       })
       const sorted = Object.keys(telaCount).sort((a, b) => telaCount[b] - telaCount[a])
       setTelaVarianteMap(Object.fromEntries(sorted.map(t => [
         t,
         Object.keys(varCount[t] ?? {}).sort((a, b) => varCount[t][b] - varCount[t][a])
       ])))
+      setPreciosClienteMap(pm)
     })
   }, [id])
 
@@ -657,14 +663,23 @@ export default function PedidoDetalle() {
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <div>
                   <label style={{ fontSize:12, color:'var(--text3)', display:'block', marginBottom:4 }}>Tela *</label>
-                  <input className="input" value={nuevaLinea.tela} onChange={e => setNuevaLinea(v => ({ ...v, tela: e.target.value, variante: '' }))}
-                    placeholder="Ej. B1, IJ, GC…" autoFocus list="nl-telas" autoComplete="off" />
+                  <input className="input" value={nuevaLinea.tela} onChange={e => {
+                    const tela = e.target.value
+                    const vNorm = ''
+                    const precio = preciosClienteMap[`${tela}|||${vNorm}`] ? String(preciosClienteMap[`${tela}|||${vNorm}`]) : ''
+                    setNuevaLinea(v => ({ ...v, tela, variante: '', precio }))
+                  }} placeholder="Ej. B1, IJ, GC…" autoFocus list="nl-telas" autoComplete="off" />
                   <datalist id="nl-telas">{Object.keys(telaVarianteMap).sort().map(t => <option key={t} value={t} />)}</datalist>
                 </div>
                 <div>
                   <label style={{ fontSize:12, color:'var(--text3)', display:'block', marginBottom:4 }}>Variante / Color</label>
-                  <input className="input" value={nuevaLinea.variante} onChange={e => setNuevaLinea(v => ({ ...v, variante: e.target.value }))}
-                    placeholder="Opcional" list="nl-vars" autoComplete="off" />
+                  <input className="input" value={nuevaLinea.variante} onChange={e => {
+                    const variante = e.target.value
+                    const vNorm = /^est/i.test(variante.trim()) ? 'Estampado' : variante
+                    const precio = preciosClienteMap[`${nuevaLinea.tela}|||${vNorm}`]
+                      ?? preciosClienteMap[`${nuevaLinea.tela}|||`]
+                    setNuevaLinea(v => ({ ...v, variante, ...(precio ? { precio: String(precio) } : {}) }))
+                  }} placeholder="Opcional" list="nl-vars" autoComplete="off" />
                   <datalist id="nl-vars">{(telaVarianteMap[nuevaLinea.tela] ?? []).sort().map(v => <option key={v} value={v} />)}</datalist>
                 </div>
               </div>
@@ -675,7 +690,10 @@ export default function PedidoDetalle() {
                     onChange={e => setNuevaLinea(v => ({ ...v, metros: e.target.value }))} placeholder="0" />
                 </div>
                 <div>
-                  <label style={{ fontSize:12, color:'var(--text3)', display:'block', marginBottom:4 }}>Precio $/m</label>
+                  <label style={{ fontSize:12, color:'var(--text3)', display:'block', marginBottom:4 }}>
+                    Precio $/m
+                    {nuevaLinea.precio ? <span style={{ marginLeft:6, fontSize:11, color:'var(--accent)' }}>✓ precio del historial</span> : null}
+                  </label>
                   <input className="input" type="number" min="0" step="0.01" value={nuevaLinea.precio}
                     onChange={e => setNuevaLinea(v => ({ ...v, precio: e.target.value }))} placeholder="0" />
                 </div>
