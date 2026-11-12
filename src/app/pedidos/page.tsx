@@ -12,7 +12,7 @@ type Pedido = {
   id: string; folio: string; fabrica: string; estado: string
   fecha_pedido: string; fecha_compromiso: string | null; fecha_entregado: string | null
   clientes: { nombre: string } | null
-  lineas_pedido: { tela: string; variante: string | null; metros_solicitados: number; metros_entregados: number | null }[]
+  lineas_pedido: { tela: string; variante: string | null; metros_solicitados: number; metros_entregados: number | null; precio: number }[]
 }
 
 function badgeStyle(estado: string) {
@@ -60,7 +60,7 @@ function PedidosContent() {
 
   useEffect(() => {
     supabase.from('pedidos')
-      .select('id,folio,fabrica,estado,fecha_pedido,fecha_compromiso,fecha_entregado,clientes(nombre),lineas_pedido(tela,variante,metros_solicitados,metros_entregados)')
+      .select('id,folio,fabrica,estado,fecha_pedido,fecha_compromiso,fecha_entregado,clientes(nombre),lineas_pedido(tela,variante,metros_solicitados,metros_entregados,precio)')
       .order('fecha_pedido', { ascending: false })
       .then(({ data }) => { setPedidos((data as unknown as Pedido[]) ?? []); setLoading(false) })
   }, [])
@@ -202,6 +202,7 @@ function PedidosContent() {
               const riesgo = calcularRiesgo(p.fecha_compromiso, p.estado)
               const metros  = p.lineas_pedido.reduce((s,l)=>s+l.metros_solicitados,0)
               const entreg  = p.lineas_pedido.reduce((s,l)=>s+(l.metros_entregados??0),0)
+              const valor   = p.lineas_pedido.reduce((s,l)=>s+(l.metros_solicitados*(l.precio??0)),0)
               const pct     = metros > 0 ? Math.min(entreg/metros*100, 100) : 0
               const badge   = badgeStyle(p.estado)
               const rc = riesgo==='atrasado'?'var(--red)':riesgo==='revisar'?'var(--yellow)':riesgo==='entregado'?'var(--text3)':'var(--accent)'
@@ -241,14 +242,17 @@ function PedidosContent() {
                             {diasRestantes>=0 ? `${diasRestantes}d` : `${Math.abs(diasRestantes)}d venc.`}
                           </span>
                         )}
-                        <span style={{ fontWeight:600, color:'var(--text)' }}>
-                          {metros.toLocaleString()} m
-                          {entreg > 0 && metros - entreg > 0 && (
-                            <span style={{ fontWeight:400, color:'var(--text3)', fontSize:11, marginLeft:4 }}>
-                              ({(metros - entreg).toLocaleString()} pend.)
-                            </span>
-                          )}
-                        </span>
+                        <div style={{ textAlign:'right' }}>
+                          <div style={{ fontWeight:600, color:'var(--text)', fontSize:12 }}>
+                            {metros.toLocaleString()} m
+                            {entreg > 0 && metros - entreg > 0 && (
+                              <span style={{ fontWeight:400, color:'var(--text3)', fontSize:11, marginLeft:4 }}>
+                                ({(metros - entreg).toLocaleString()} pend.)
+                              </span>
+                            )}
+                          </div>
+                          {valor > 0 && <div style={{ fontSize:12, fontWeight:700, color:'var(--accent)' }}>${Math.round(valor).toLocaleString()}</div>}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -287,6 +291,7 @@ function PedidosContent() {
                   const riesgo  = calcularRiesgo(p.fecha_compromiso, p.estado)
                   const metros  = p.lineas_pedido.reduce((s,l)=>s+l.metros_solicitados,0)
                   const entreg  = p.lineas_pedido.reduce((s,l)=>s+(l.metros_entregados??0),0)
+                  const valor   = p.lineas_pedido.reduce((s,l)=>s+(l.metros_solicitados*(l.precio??0)),0)
                   const pct     = metros > 0 ? Math.min(entreg/metros*100, 100) : 0
                   const badge   = badgeStyle(p.estado)
                   const rc = riesgo==='atrasado'?'var(--red)':riesgo==='revisar'?'var(--yellow)':riesgo==='entregado'?'var(--text3)':'var(--accent)'
@@ -305,6 +310,7 @@ function PedidosContent() {
                       </td>
                       <td style={{ ...s, textAlign:'right' }}>
                         <div style={{ fontWeight:600, color:'var(--text)' }}>{metros.toLocaleString()} m</div>
+                        {valor > 0 && <div style={{ fontSize:12, fontWeight:700, color:'var(--accent)', marginTop:1 }}>${Math.round(valor).toLocaleString()}</div>}
                         {entreg > 0 && metros - entreg > 0 && (
                           <div style={{ fontSize:10, color:'var(--text3)', marginTop:1 }}>
                             {(metros - entreg).toLocaleString()} m pend.

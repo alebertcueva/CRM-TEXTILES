@@ -317,6 +317,7 @@ function PedidoCard({ p, onCommentSaved }: { p: Pedido; onCommentSaved: () => vo
   const metros        = p.lineas_pedido.reduce((s,l)=>s+l.metros_solicitados,0)
   const solic         = metros
   const entreg        = p.lineas_pedido.reduce((s,l)=>s+(l.metros_entregados??0),0)
+  const valor         = p.lineas_pedido.reduce((s,l)=>s+(l.metros_solicitados*(l.precio??0)),0)
   const pct           = solic > 0 ? Math.min(entreg/solic*100,100) : 0
 
   async function saveComment(e: React.FormEvent) {
@@ -377,6 +378,7 @@ function PedidoCard({ p, onCommentSaved }: { p: Pedido; onCommentSaved: () => vo
               {metros.toLocaleString()} m
               {diasRestantes!==null && ` · ${diasRestantes>=0?`${diasRestantes}d`:`${Math.abs(diasRestantes)}d venc.`}`}
             </span>
+            {valor > 0 && <span style={{ fontSize:12, fontWeight:700, color:'var(--accent)' }}>${Math.round(valor).toLocaleString()}</span>}
           </div>
         </div>
       </div>
